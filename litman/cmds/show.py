@@ -1,3 +1,4 @@
+"""Show information about a given item"""
 from litman.litman import ItemNotFound
 
 ARGS = [(['list_item'], {'nargs': 1, 'help': 'Show information about a list item'})]

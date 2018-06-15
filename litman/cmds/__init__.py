@@ -12,6 +12,7 @@ commands = [
     'list',
     'search',
     'show',
+    'version',
 ]
 
 modules = OrderedDict()

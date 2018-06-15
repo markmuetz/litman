@@ -1,3 +1,4 @@
+"""Generate a <fn>.bib bibtex filename from citations in .tex files"""
 import os
 
 ARGS = [(['-o', '--outfile'], {'help': 'Name of output file'}),

@@ -1,3 +1,4 @@
+"""List all items"""
 ARGS = [(['-t', '--tag-filter'], {'help': 'tag to filter on', 'default': None}),
         (['-s', '--sort-on'], {'help': 'list to sort on (comma separated)', 'default': 'name'}),
         (['-r', '--reverse'], {'help': 'reverse order', 'action': 'store_true'})]

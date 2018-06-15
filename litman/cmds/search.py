@@ -1,3 +1,4 @@
+"""Search through extracted test for <search_str>"""
 import re
 
 from litman.setup_logging import bcolors

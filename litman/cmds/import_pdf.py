@@ -1,3 +1,4 @@
+"""Import items from PDF filenames"""
 ARGS = [(['dir'], {'nargs': 1, 'help': 'Directory to import from'})]
 
 
