@@ -1,0 +1,7 @@
+#!/usr/bin/env python
+"""User facing litman command entry point.
+
+$ litman <cmd>"""
+import sys
+from litman.litman_cmd import main
+exit(main(sys.argv))
