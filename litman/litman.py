@@ -9,7 +9,6 @@ from collections import Counter, defaultdict
 from pybtex.database import parse_file
 from pybtex.database import BibliographyData, Entry
 
-
 logger = getLogger('litman')
 
 
@@ -138,6 +137,7 @@ class LitMan:
         import_dir = _remove_periods(import_dir)
         pdf_fns = _scan_dirs(import_dir, ext='.pdf')
         for pdf_fn in pdf_fns:
+            logger.info(f'Importing: {pdf_fn}')
             pdf_basename = os.path.basename(pdf_fn)
             item_name = os.path.splitext(pdf_basename)[0]
             lit_item_dir = os.path.join(self.lit_dir, item_name)
@@ -159,7 +159,7 @@ class LitMan:
         import_dir = _remove_periods(import_dir)
         bib_fns = _scan_dirs(import_dir, ext='.bib')
         for bib_fn in bib_fns:
-            logger.debug(f'bib_fn: {bib_fn}')
+            logger.info(f'Importing: {bib_fn}')
             bib_data = parse_file(bib_fn)
             tag = os.path.basename(os.path.dirname(bib_fn))
             for bib_name, bib_entry in bib_data.entries.items():
@@ -269,7 +269,7 @@ class LitMan:
             if not item.has_bib:
                 logger.error(f'No bib for {item.name}')
             else:
-                logger.debug(f'creating bib entry for {item.bib_name}')
+                logger.info(f'Creating bib entry: {item.bib_name}')
                 bib_data_dict[item.bib_name] = item.bib_entry
         return BibliographyData(bib_data_dict) 
 
@@ -283,6 +283,10 @@ class LitMan:
         bib_counters = defaultdict(Counter)
 
         for lit_item_dir in os.listdir(self.lit_dir):
+            if lit_item_dir[0] == '.':
+                continue
+            if not os.path.isdir(os.path.join(self.lit_dir, lit_item_dir)):
+                continue
             logger.debug(f'  adding lit_item_dir {lit_item_dir}')
             item = LitItem(self, lit_item_dir)
             self.max_itemname_len = max(self.max_itemname_len, len(item.name))

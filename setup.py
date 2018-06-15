@@ -33,6 +33,8 @@ setup(
         'bin/litman',
         ],
     install_requires=[
+        'pybtex',
+        'configparser',
         ],
     package_data={ },
     url='https://github.com/markmuetz/litman',
