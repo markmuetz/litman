@@ -1,4 +1,4 @@
-"""Import items from parsing bibtex <fn>.bib files"""
+"""Import items from parsing bibtex .bib files"""
 ARGS = [(['dir'], {'nargs': 1, 'help': 'Directory to import from'})]
 
 
