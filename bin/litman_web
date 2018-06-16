@@ -1,0 +1,13 @@
+#!/bin/bash
+_script="$(readlink -f ${BASH_SOURCE[0]})" ## Delete last component from $_script ##
+_base="$(dirname $_script)" ## Okay, print it ##
+# echo "Script name : $_script"
+# echo "Current working dir : $PWD"
+# echo "Script location path (dir) : $_base"
+
+litman_dir=$(python -c "import litman; print(litman.__path__[0])")
+echo $litman_dir
+
+export FLASK_APP=$litman_dir/litman_web.py
+export FLASK_DEBUG=1
+flask run

@@ -31,10 +31,12 @@ setup(
               #'litman.tests'],
     scripts=[
         'bin/litman',
+        'bin/litman_web',
         ],
     install_requires=[
         'pybtex',
         'configparser',
+        'setup',
         ],
     package_data={ },
     url='https://github.com/markmuetz/litman',

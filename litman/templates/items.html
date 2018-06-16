@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Items</title>
+    </head>
+    <body>
+        <table>
+            <tr>
+                <th><a href="{{ url_for('list_items') }}?{{ curr_sorts }}sort_on=name">Item</a></th>
+                <th><a href="{{ url_for('list_items') }}?{{ curr_sorts }}sort_on=has_pdf">has_pdf</a></th>
+                <th><a href="{{ url_for('list_items') }}?{{ curr_sorts }}sort_on=has_bib">has_bib</a></th>
+                <th><a href="{{ url_for('list_items') }}?{{ curr_sorts }}sort_on=has_extracted_text">has_extracted_text</a></th>
+                <th>tags</th>
+            </tr>
+            {% for item in items %}
+            <tr>
+                <td><a href="{{ url_for('show_item', item_name=item.name) }}">{{ item.name }}</a></td>
+                <td>{{ item.has_pdf }}</td>
+                <td>{{ item.has_bib }}</td>
+                <td>{{ item.has_extracted_text }}</td>
+                <td>
+                    {% for tag in item.tags %}
+                    <a href="{{ url_for('list_items') }}?{{ curr_sorts }}tag_filter={{ tag }}">{{ tag }}</a>
+                    {% endfor %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </body>
+</html>
