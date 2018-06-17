@@ -7,12 +7,12 @@ flask run
 from flask import Flask, request
 from flask import render_template
 
-import litman as lm
+from litman.litman import LitMan, load_config
 
 app = Flask(__name__)
 
-litmanrc_fn, litman_dir = lm.litman_cmd.find_litman_dir()
-litman = lm.LitMan(litman_dir)
+litmanrc_fn, config = load_config()
+litman = LitMan(config['litman_dir')
 
 
 @app.route('/')

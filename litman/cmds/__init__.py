@@ -10,6 +10,7 @@ commands = [
     'import_bib',
     'import_pdf',
     'list',
+    'mag_search',
     'search',
     'show',
     'version',

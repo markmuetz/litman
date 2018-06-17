@@ -1,26 +1,14 @@
 import os
 
-from configparser import ConfigParser
-
 import litman.cmds as cmds
 from litman.command_parser import parse_commands
 from litman.setup_logging import setup_logger, add_file_logging
-from litman.litman import LitMan
+from litman.litman import LitMan, load_config
 
 LITMAN_BASEDIR = '$HOME/LitMan'
 
 ARGS = [(['--DEBUG', '-D'], {'action': 'store_true', 'default': False}),
         (['--litman-dir', '-l'], {'help': 'LitMan directory', 'default': LITMAN_BASEDIR})]
-
-
-def find_litman_dir():
-    litmanrc_fn = os.path.join(os.path.expandvars('$HOME'), '.litmanrc')
-    if os.path.exists(litmanrc_fn):
-        config = ConfigParser()
-        with open(litmanrc_fn, 'r') as f:
-            config.read_file(f)
-        litman_dir = config.get('litman', 'litman_dir')
-    return litmanrc_fn, litman_dir
 
 
 def main(argv):
@@ -35,7 +23,7 @@ def main(argv):
 
     logger = setup_logger(debug, colour=True)
     cmd_string = ' '.join(argv)
-    litmanrc_fn, litman_dir = find_litman_dir()
+    litmanrc_fn, config = load_config()
 
     if not os.path.exists(litman_dir):
         print('You can change your litman dir by editing $HOME/.litmanrc')
@@ -58,7 +46,7 @@ def main(argv):
         logger.debug(f'reading config {litmanrc_fn}')
     logger.debug(f'using litman_dir {litman_dir}')
 
-    litman = LitMan(litman_dir)
+    litman = LitMan(config['litman_dir'])
 
     logger.debug(f'dispatching to {cmd}')
     return cmd.main(litman, args)

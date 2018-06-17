@@ -6,10 +6,21 @@ from subprocess import call, Popen
 from glob import glob
 from collections import Counter, defaultdict
 
+from configparser import ConfigParser
+
 from pybtex.database import parse_file
 from pybtex.database import BibliographyData, Entry
 
 logger = getLogger('litman')
+
+
+def load_config():
+    litmanrc_fn = os.path.join(os.path.expandvars('$HOME'), '.litmanrc')
+    if os.path.exists(litmanrc_fn):
+        config = ConfigParser()
+        with open(litmanrc_fn, 'r') as f:
+            config.read_file(f)
+    return litmanrc_fn, config['litman']
 
 
 def _scan_dirs(start_dir, ext):
