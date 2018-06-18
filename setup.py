@@ -36,6 +36,7 @@ setup(
     install_requires=[
         'pybtex',
         'configparser',
+        'requests',
         'setup',
         ],
     package_data={ },

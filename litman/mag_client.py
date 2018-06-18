@@ -5,27 +5,18 @@ from logging import getLogger
 import requests
 import simplejson
 
-from litman.common_words import COMMON_WORDS
-
 logger = getLogger('litman.magsearch')
 
 
-def _build_title_expr_str(title):
-    # repleace punctuation with space
-    title = re.sub(r'[^\w\s]', ' ', title )
-    split_title = [s.strip() for s in title.lower().split(' ') if s != '']
-    logger.debug(split_title)
-    assert len(split_title) >= 1
-    if len(split_title) == 1:
-        return title
-    else:
-        split_title = list(set(split_title) - COMMON_WORDS)
-        l_word = split_title[0]
-        r_word = split_title[1]
-        expr = f'And(W=%27{l_word}%27,W=%27{r_word}%27)'
-        for r_word in split_title[2:]:
-            expr = f'And({expr},W=%27{r_word}%27)'
-        return expr
+class PaperNotFound(Exception):
+    pass
+
+
+class HttpException(Exception):
+    pass
+
+
+DEFAULT_ATTRS = ','.join(['Id', 'Ti', 'Y', 'RId', 'E'])
 
 
 class MagClient:
@@ -33,47 +24,87 @@ class MagClient:
 
     def __init__(self, key):
         self.key = key
+        self._session = requests.Session()
 
-    def _format_evalutate_url(self, expr, attributes):
-        return f'{self.BASE_URL}/evaluate?expr={expr}&attributes={attributes}&count=1&subscription-key={self.key}'
+    def _format_evalutate_url(self, expr, attributes, count):
+        if count:
+            count_args = f'count={count}&'
+        else:
+            count_args = ''
+        return f'{self.BASE_URL}/evaluate?expr={expr}&attributes={attributes}&{count_args}subscription-key={self.key}'
 
-    def _parse_response_text(self, resp_text):
-        logger.debug(resp_text)
+    def _format_interpret_url(self, query):
+        return f'{self.BASE_URL}/interpret?query={query}&subscription-key={self.key}'
+
+    def _parse_evaluate_response_text(self, resp_text):
         resp_json = simplejson.loads(resp_text)
-        num_entries = len(resp_json['entities'])
-        if num_entries > 1:
-            logger.warn('{num_entries} returned')
-        elif num_entries == 0:
-            raise Exception('No entries returned')
+        return resp_json['entities']
 
-        entry_json = resp_json['entities'][0]
-        extended_attr_json = simplejson.loads(entry_json['E'])
-        return entry_json, extended_attr_json
+    def _parse_interpret_response_text(self, resp_text):
+        resp_json = simplejson.loads(resp_text)
+        return resp_json
 
-    def evaluate(self, expr, attributes):
-        req_url = self._format_evalutate_url(expr, attributes)
+    def _get_url(self, req_url, sleep=True):
+        resp = self._session.get(req_url)
+        if resp.status_code != 200:
+            logger.error(resp.text)
+            raise HttpException(resp.text)
+
+        if sleep:
+            time.sleep(1)
+        return resp
+
+    def evaluate(self, expr, attributes=DEFAULT_ATTRS, count=None):
+        req_url = self._format_evalutate_url(expr, attributes, count)
         logger.debug(req_url)
-        resp = requests.get(req_url)
-        # import ipdb; ipdb.set_trace()
-        assert(resp.status_code == 200)
-        entry_json, extended_attr_json = self._parse_response_text(resp.text)
-        return entry_json, extended_attr_json
+        resp = self._get_url(req_url)
+        entities = self._parse_evaluate_response_text(resp.text)
+        logger.debug(f'{len(entities)} entities returned')
+        return entities
+
+    def interpret(self, query):
+        req_url = self._format_interpret_url(query)
+        logger.debug(req_url)
+        resp = self._get_url(req_url)
+        interpret_json = self._parse_interpret_response_text(resp.text)
+        return interpret_json
+
+    def get_single_entry(self, expr):
+        entities = self.evaluate(expr, count=1)
+
+        if len(entities) == 0:
+            raise PaperNotFound('No entries returned')
+        assert len(entities) == 1
+
+        entry_json = entities[0]
+        if 'E' in entry_json:
+            extended_attr_json = simplejson.loads(entry_json['E'])
+            entry_json['E'] = extended_attr_json
+        return entry_json
 
     def title_search(self, title):
-        method = 'evaluate'
-        expr = _build_title_expr_str(title)
-        logger.debug(expr)
-        attributes = ','.join(['Id', 'Ti', 'Y', 'E'])
+        interpret_json = self.interpret(title)
 
-        entry_json, extended_attr_json = self. evaluate(expr, attributes)
-        logger.debug(entry_json['Ti'])
-        return entry_json, extended_attr_json
+        for interpretation in interpret_json['interpretations']:
+            expr = interpretation['rules'][0]['output']['value']
+            logger.debug(expr)
 
-    def get_citations(self, entry_ids):
-        #for entry_id in extended_attr_json['PR']:
-        for entry_id in entry_ids:
-            expr = f'And(Id={entry_id})'
-            request_url = format_url(method, expr, attributes)
-            entry_json, extended_attr_json = parse_response_text(requests.get(request_url).text)
-            logger.debug(entry_json['Ti'])
-            time.sleep(1)
+            try:
+                entry_json = self.get_single_entry(expr)
+
+                if 'Ti' in entry_json:
+                    logger.debug(entry_json['Ti'])
+                return entry_json
+
+            except PaperNotFound:
+                logger.warn(f'Could not find paper: "{title}"')
+                raise
+        else:
+            # No interpretations.
+            logger.warn(f'Could not build interpretations for: "{title}"')
+            raise PaperNotFound('No interpretations')
+
+    def find_cited_by(self, mag_id):
+        expr = f'RId={mag_id}'
+        entities = self.evaluate(expr, attributes=['Id'], count=100000)
+        return entities

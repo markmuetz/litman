@@ -1,29 +1,64 @@
 """Do a Microsoft Academic Graph search"""
-import time
 from logging import getLogger
 
-from litman.litman import ItemNotFound, load_config
-from litman.mag_client import MagClient
+import simplejson
 
-ARGS = [(['--list-item'], {'help': 'Item to perform search on'}),
-        (['--all', '-a'], {'help': 'Search all items with bib', 'action': 'store_true'}),
-        (['--title', '-t'], {'help': 'Perform search on title'})]
+from litman.litman import ItemNotFound, load_config, LitItem
+from litman.mag_client import MagClient, HttpException, PaperNotFound
+
+ARGS = [(['--item', '-i'], {'help': 'Item to perform search on'}),
+        (['--force', '-f'], {'help': 'Force refresh', 'action': 'store_true'}),
+        (['--show-all', '-s'], {'help': 'Show all info', 'action': 'store_true'}),
+        (['--tag-filter', '-t'], {'help': 'tag to filter on', 'default': None}),
+        (['--mag-items-only', '-m'], {'help': 'only perform on mag_items', 'action': 'store_true'}),
+        (['--level', '-l'], {'help': 'level to show', 'default': None, 'type': int}),
+        (['--title'], {'help': 'Perform search on title'})]
 
 
-logger = getLogger('litman.magsearch')
+logger = getLogger('litman.mag_search')
 
-def search_title(mag_client, title):
-    time.sleep(1)
+
+def search_title(litman, item, mag_client, title, force):
     try:
-        print(title)
-        entry_json, extended_attr_json = mag_client.title_search(title)
-        print(entry_json['Ti'])
-        print(extended_attr_json['DN'])
-        print(extended_attr_json['DOI'])
-        return entry_json, extended_attr_json
-    except:
+        if item and item.has_mag and not force:
+            entry = item.mag_entry()
+        else:
+            entry = mag_client.title_search(title)
+            if item:
+                item.add_mag_data(entry)
+
+        logger.info(entry['Ti'])
+
+        if 'E' in entry and 'DOI' in entry['E']:
+            logger.info(entry['E']['DOI'])
+        else:
+            logger.info('NO DOI')
+        return title, entry
+    except HttpException as e:
+        logger.error(f'HTTP Exception "{e}"')
+        raise
+    except PaperNotFound:
         logger.warn(f'Could not find entry for "{title}"')
-        return None
+        return title, None
+
+
+def search_id(litman, item, mag_client, force):
+    try:
+        if item and item.has_mag and not force:
+            logger.info(f'Using existing for {item.name}')
+            entry = item.mag_entry()
+        else:
+            entry = mag_client.get_single_entry(f'Id={item.name}')
+            if item:
+                item.add_mag_data(entry)
+
+        return item.name, entry
+    except HttpException as e:
+        logger.error(f'HTTP Exception "{e}"')
+        raise
+    except PaperNotFound:
+        logger.warn(f'Could not find entry for "{title}"')
+        return title, None, None
 
 
 def main(litman, args):
@@ -31,28 +66,64 @@ def main(litman, args):
     assert 'mag_key' in config
     mag_client = MagClient(config['mag_key'])
 
-    if args.all:
-        results = []
-        items = litman.get_items(has_bib=True)
-        for item in items:
-            title = item.bib_entry.fields['title']
-            results.append(search_title(mag_client, title))
-        print(f'{len([r for r in results if r])}/{len(results)}')
-        for res in results:
-            if not res:
-                continue
-            print('https://doi.org/' + res[1]['DOI'])
-    elif args.title:
-        search_title(mag_client, args.title)
-    else:
-        for list_name in args.list_items:
-            try:
-                item = litman.get_item(list_name)
-            except ItemNotFound:
-                print('Could not find item')
-                return
+    if args.title:
+        title, entry = search_title(litman, None, mag_client, args.title, args.force)
+        if args.show_all:
+            print(simplejson.dumps(entry, indent=2))
+    elif args.item:
+        try:
+            item = litman.get_item(args.item)
+        except ItemNotFound:
+            logger.info('Could not find item')
+            return
 
-            assert item.has_bib
-            # import ipdb; ipdb.set_trace()
-            title = item.bib_entry.fields['title']
-            search_title(mag_client, title)
+        title = item.title()
+        title, entry = search_title(litman, item, mag_client, title, args.force)
+        if args.show_all:
+            print(simplejson.dumps(entry, indent=2))
+    else:
+        results = []
+
+        if args.mag_items_only:
+            items = litman.get_items(tag_filter='mag_ref')
+            for i, item in enumerate(items):
+                logger.info(f'Getting MAG data for {item.name}: {i + 1}/{len(items)}')
+                title, entry = search_id(litman, item, mag_client, args.force)
+                results.append((title, entry))
+
+                if args.show_all:
+                    print(simplejson.dumps(entry, indent=2))
+        else:
+            items = litman.get_items(tag_filter=args.tag_filter, level=args.level)
+            for i, item in enumerate(items):
+                if not item.title():
+                    logger.info(f'No title for {item.name}')
+                    results.append((None, None))
+                    continue
+                logger.info(f'Getting MAG data for {item.name}: {i + 1}/{len(items)}')
+                title, entry = search_title(litman, item, mag_client, item.title(), args.force)
+                results.append((title, entry))
+
+                if args.show_all:
+                    print(simplejson.dumps(entry, indent=2))
+
+        total = len(items)
+        no_entry = 0
+        no_doi = 0
+        complete = 0
+        for title, entry in results:
+            if not entry:
+                no_entry += 1
+                logger.info(f'{title}: Not Found')
+                continue
+            elif 'DOI' not in entry['E']:
+                no_doi += 1
+                logger.info(f'{title}: No DOI')
+            else:
+                complete += 1
+                logger.info(f'{title}: https://doi.org/{entry["E"]["DOI"]}')
+
+        logger.info(f'complete: {complete}, {100 * complete/total} %')
+        logger.info(f'no_doi: {no_doi}, {100 * no_doi/total} %')
+        logger.info(f'no_entry: {no_entry}, {100 * no_entry/total} %')
+        logger.info(f'total: {total}')

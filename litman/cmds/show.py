@@ -15,6 +15,8 @@ def main(litman, args):
     print(f'has_bib: {item.has_bib}')
     print(f'has_extracted_text: {item.has_extracted_text}')
     print(f'tags: {item.tags}')
+    print(f'cites: {item.cites}')
+    print(f'cited_by: {item.cited_by}')
     if item.has_bib:
         print('===============')
         print('= bib entry   =')
@@ -26,4 +28,10 @@ def main(litman, args):
         print('= pdf text    =')
         print('===============')
         print(item.extracted_text[:1000])
+        print('===============')
+    if item.has_mag:
+        print('===============')
+        print('= mag entry   =')
+        print('===============')
+        print(item.mag_entry())
         print('===============')

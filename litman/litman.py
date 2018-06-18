@@ -1,15 +1,14 @@
 import os
-import sys
 import re
 from logging import getLogger
 from subprocess import call, Popen
-from glob import glob
 from collections import Counter, defaultdict
 
+import simplejson
 from configparser import ConfigParser
 
-from pybtex.database import parse_file
-from pybtex.database import BibliographyData, Entry
+from pybtex.database import parse_file as parse_bib_file
+from pybtex.database import BibliographyData
 
 logger = getLogger('litman')
 
@@ -20,7 +19,9 @@ def load_config():
         config = ConfigParser()
         with open(litmanrc_fn, 'r') as f:
             config.read_file(f)
-    return litmanrc_fn, config['litman']
+        return litmanrc_fn, config['litman']
+    else:
+        return None, None
 
 
 def _scan_dirs(start_dir, ext):
@@ -33,12 +34,11 @@ def _scan_dirs(start_dir, ext):
     return fns
 
 
-def _extract_text(pdf_fn, output_dir=os.getcwd()):
+def _extract_text(pdf_fn, output_fn):
     pdf_basename = os.path.basename(pdf_fn)
     text_basename = 'extracted_text.txt'
-    text_fn = os.path.join(output_dir, text_basename)
-    logger.debug(f'extract text: {pdf_fn} -> {text_fn}')
-    call(['pdftotext', pdf_fn, text_fn])
+    logger.debug(f'extract text: {pdf_fn} -> {output_fn}')
+    call(['pdftotext', pdf_fn, output_fn])
 
 
 def _get_cites_from_tex(tex_fn):
@@ -79,6 +79,7 @@ def _append_tag(tags_fn, tag):
     with open(tags_fn, 'w') as f:
         f.write(','.join(tags) + '\n')
 
+
 def _remove_periods(path):
     return os.path.join('/', os.path.relpath(path, '/'))
 
@@ -95,18 +96,28 @@ class LitItem:
 
         self.name = name
 
+        self.level_fn = os.path.join(self.litman.lit_dir, name, f'level.txt')
         self.pdf_fn = os.path.join(self.litman.lit_dir, name, f'{name}.pdf')
         self.bib_fn = os.path.join(self.litman.lit_dir, name, 'ref.bib')
         self.extracted_text_fn = os.path.join(self.litman.lit_dir, name, 'extracted_text.txt')
+        self.mag_entry_fn = os.path.join(self.litman.lit_dir, name, 'mag_entry.json')
+        self.cites_fn = os.path.join(self.litman.lit_dir, name, 'cites.json')
+        self.cited_by_fn = os.path.join(self.litman.lit_dir, name, 'cited_by.json')
+
         self.tags_fn = os.path.join(self.litman.lit_dir, name, 'tags.txt')
+
+        self.level = int(open(self.level_fn, 'r').read())
 
         self.has_pdf = os.path.exists(self.pdf_fn)
         self.has_bib = os.path.exists(self.bib_fn)
         self.has_extracted_text = os.path.exists(self.extracted_text_fn)
         self.has_tags = os.path.exists(self.tags_fn)
+        self.has_mag = os.path.exists(self.mag_entry_fn)
+        self.has_cites = os.path.exists(self.cites_fn)
+        self.has_cited_by = os.path.exists(self.cited_by_fn)
 
         if self.has_bib:
-            self.bib_data = parse_file(self.bib_fn)
+            self.bib_data = parse_bib_file(self.bib_fn)
             assert len(self.bib_data.entries.keys()) == 1
             self.bib_name = self.bib_data.entries.keys()[0]
             self.bib_entry = self.bib_data.entries.values()[0]
@@ -119,10 +130,72 @@ class LitItem:
         else:
             self.extracted_text = None
 
+        if self.has_cites:
+            with open(self.cites_fn, 'r') as f:
+                self.cites = simplejson.load(f)
+        else:
+            self.cites = []
+
+        if self.has_cited_by:
+            with open(self.cited_by_fn, 'r') as f:
+                self.cited_by = simplejson.load(f)
+        else:
+            self.cited_by = []
+
         if self.has_tags:
             self.tags = _read_tags(self.tags_fn)
         else:
             self.tags = []
+
+        self._mag_loaded = False
+
+    def title(self):
+        if self.has_bib:
+            return self.bib_entry.fields['title']
+        elif self.has_mag:
+            return self.mag_entry()['Ti']
+        else:
+            return ''
+
+    def mag_entry(self):
+        if not self._mag_loaded:
+            self._load_mag()
+        return self._mag_entry
+
+    def append_tag(self, tag):
+        _append_tag(self.tags_fn, tag)
+
+    def add_pdf(self, pdf_fn):
+        _extract_text(pdf_fn, self.extracted_text_fn)
+
+        pdf_symlink = self.pdf_fn
+        if not os.path.exists(self.pdf_fn):
+            os.symlink(pdf_fn, self.pdf_fn)
+
+    def add_bib_data(self, bib_name, bib_entry):
+        single_bib_data = BibliographyData({bib_name: bib_entry})
+        single_bib_data.to_file(self.bib_fn)
+
+    def add_mag_data(self, mag_entry):
+        with open(self.mag_entry_fn, 'w') as f:
+            simplejson.dump(mag_entry, f)
+
+    def add_cites(self, ref_item_name):
+        self.cites = list(set(self.cites + [ref_item_name]))
+        logger.debug(self.cites)
+        with open(self.cites_fn, 'w') as f:
+            simplejson.dump(self.cites, f)
+
+    def add_cited_by(self, item_name):
+        self.cited_by = list(set(self.cited_by + [item_name]))
+        logger.debug(self.cited_by)
+        with open(self.cited_by_fn, 'w') as f:
+            simplejson.dump(self.cited_by, f)
+
+    def _load_mag(self):
+        with open(self.mag_entry_fn, 'r') as f:
+            self._mag_entry = simplejson.load(f)
+        self._mag_loaded = True
 
     def display(self):
         if self.has_pdf:
@@ -141,29 +214,30 @@ class LitMan:
         self.lit_dir = lit_dir
         self.items = []
         self._tags = []
-        self.scanned = False
+        self._scanned = False
 
     def import_pdf(self, import_dir):
         import_dir = os.path.join(os.getcwd(), import_dir)
         import_dir = _remove_periods(import_dir)
         pdf_fns = _scan_dirs(import_dir, ext='.pdf')
+
         for pdf_fn in pdf_fns:
             logger.info(f'Importing: {pdf_fn}')
             pdf_basename = os.path.basename(pdf_fn)
             item_name = os.path.splitext(pdf_basename)[0]
-            lit_item_dir = os.path.join(self.lit_dir, item_name)
 
-            if not os.path.exists(lit_item_dir):
-                os.makedirs(lit_item_dir)
-                _extract_text(pdf_fn, lit_item_dir)
+            try:
+                item = self.get_item(item_name)
+                logger.info(f'Item {item_name} already exists')
+            except ItemNotFound:
+                logger.info(f'Creating item {item_name}')
+                item = self.create_item(item_name, level=0)
+                tag = os.path.basename(os.path.dirname(pdf_fn))
+                item.append_tag(tag)
+                item.append_tag('import_pdf')
 
-            pdf_symlink = os.path.join(lit_item_dir, pdf_basename)
-            if not os.path.exists(pdf_symlink):
-                os.symlink(pdf_fn, pdf_symlink)
-
-            tag = os.path.basename(os.path.dirname(pdf_fn))
-            tags_fn = os.path.join(lit_item_dir, 'tags.txt')
-            _append_tag(tags_fn, tag)
+            if not item.has_pdf:
+                item.add_pdf(pdf_fn)
 
     def import_bib(self, import_dir):
         import_dir = os.path.join(os.getcwd(), import_dir)
@@ -171,59 +245,109 @@ class LitMan:
         bib_fns = _scan_dirs(import_dir, ext='.bib')
         for bib_fn in bib_fns:
             logger.info(f'Importing: {bib_fn}')
-            bib_data = parse_file(bib_fn)
+            bib_data = parse_bib_file(bib_fn)
             tag = os.path.basename(os.path.dirname(bib_fn))
             for bib_name, bib_entry in bib_data.entries.items():
-                logger.debug(bib_name)
-                logger.debug(bib_entry)
-                lit_item_dir = os.path.join(self.lit_dir, bib_name)
+                item_name = bib_name
 
-                if not os.path.exists(lit_item_dir):
-                    os.makedirs(lit_item_dir)
+                try:
+                    item = self.get_item(item_name)
+                    logger.info(f'Item {item_name} already exists')
+                except ItemNotFound:
+                    logger.info(f'Creating item {item_name}')
+                    item = self.create_item(item_name, level=0)
+                    item.append_tag(tag)
+                    item.append_tag('import_bib')
 
-                single_bib_data = BibliographyData({bib_name: bib_entry})
-                single_bib_data.to_file(os.path.join(lit_item_dir, 'ref.bib'))
-                tags_fn = os.path.join(lit_item_dir, 'tags.txt')
-                _append_tag(tags_fn, tag)
+                if not item.has_bib:
+                    item.add_bib_data(bib_name, bib_entry)
+
+    def build_refs(self, level=None, create_items=True):
+        mag_items = self.get_items(has_mag=True, level=level)
+        mag_id_dict = dict([(item.mag_entry()['Id'], item) for item in mag_items])
+        for item in mag_items:
+            if 'RId' not in item.mag_entry():
+                logger.warn(f'No RId for {item.name}')
+                continue
+            for ref_mag_id in set(item.mag_entry()['RId']):
+                if ref_mag_id in mag_id_dict:
+                    ref_item = mag_id_dict[ref_mag_id]
+                    logger.info(f'{item.name} -> {ref_item.name}')
+                else:
+                    try:
+                        ref_item = self.get_item(str(ref_mag_id))
+                        logger.info(f'Item already exists {ref_mag_id}')
+                    except:
+                        if create_items:
+                            logger.info(f'Creating ref for {ref_mag_id}')
+                            ref_item = self.create_item(str(ref_mag_id), item.level - 1)
+                    if create_items:
+                        ref_item.append_tag('mag_ref')
+
+                item.add_cites(ref_item.name)
+                if create_items:
+                    ref_item.add_cited_by(item.name)
+
+
+    def create_item(self, name, level):
+        if not self._scanned:
+            self._scan()
+        if os.path.exists(os.path.join(self.lit_dir, name)):
+            raise Exception(f'Item {name} already exists')
+
+        os.makedirs(os.path.join(self.lit_dir, name))
+        open(os.path.join(self.lit_dir, name, 'level.txt'), 'w').write(str(level))
+
+        item = LitItem(self, name)
+        self.items.append(item)
+        return item
 
     def get_item(self, item_name):
         item = LitItem(self, item_name)
         return item
 
-    def get_items(self, tag_filter=None, has_pdf=None, has_bib=None, has_extracted_text=None):
+    def get_items(self, tag_filter=None, 
+                  has_pdf=None, has_bib=None, has_extracted_text=None, has_mag=None,
+                  level=None):
         self._scan()
         items = [item for item in self.items]
         if tag_filter:
-            items = [item for item in self.items if tag_filter in item.tags]
-        if has_pdf:
-            items = [item for item in self.items if item.has_pdf]
-        if has_bib:
-            items = [item for item in self.items if item.has_bib]
-        if has_extracted_text:
-            items = [item for item in self.items if item.has_extracted_text]
+            items = [item for item in items if tag_filter in item.tags]
+        if has_pdf is not None:
+            items = [item for item in items if item.has_pdf == has_pdf]
+        if has_bib is not None:
+            items = [item for item in items if item.has_bib == has_bib]
+        if has_extracted_text is not None:
+            items = [item for item in items if item.has_extracted_text == has_extracted_text ]
+        if has_mag is not None:
+            items = [item for item in items if item.has_mag == has_mag]
+        if level is not None:
+            items = [item for item in items if item.level == level]
         return items
 
     def get_tags(self):
         self._scan()
         return self._tags.most_common()
 
-    def list_items(self, tag_filter=None, sort_on=['name'], reverse=False):
+    def list_items(self, tag_filter=None, sort_on=['name'], reverse=False, level=0):
         self._scan()
-        items = self.get_items(tag_filter)
+        items = self.get_items(tag_filter, level=level)
         for sort in sort_on:
             items = sorted(items, key=lambda item: getattr(item, sort))
             if reverse:
                 items = items[::-1]
 
-        fstring = f'{{0:<{self.max_itemname_len + 1}}}: {{1:>5}} {{2:>5}} {{3}}'
-        print(fstring.format(*['item_name', 'pdf', 'bib', 'tags']))
-        print('=' * len(fstring.format(*['item_name', 'pdf', 'bib', 'tags'])))
+        fmt = f'{{0:<{self.max_itemname_len + 1}}}: {{1:>5}} {{2:>5}} {{3:>5}} {{4:>5}} {{5:>5}} {{6:<50}} {{7}}'
+        print(fmt.format(*['item_name', 'pdf', 'bib', 'mag', 'cites', 'cited', 'tags', 'title']))
+        print('=' * len(fmt.format(*['item_name', 'pdf', 'bib', 'mag', 'cites', 'cited', 'tags', 'title'])))
         for item in items:
             if not tag_filter or tag_filter in item.tags:
-                print(fstring.format(item.name, item.has_pdf, item.has_bib, item.tags))
+                print(fmt.format(item.name, item.has_pdf, item.has_bib, item.has_mag, 
+                                 len(item.cites), len(item.cited_by), item.title()[:50], item.tags))
 
     def rescan(self):
-        self.scanned = False
+        self._scanned = False
+        self.items = []
         self._scan()
 
     def search(self, text, ignore_case=False):
@@ -285,21 +409,21 @@ class LitMan:
         return BibliographyData(bib_data_dict) 
 
     def _scan(self):
-        if self.scanned:
+        if self._scanned:
             return
-        self.scanned = True
+        self._scanned = True
         self.max_itemname_len = 0
 
         tags = Counter()
         bib_counters = defaultdict(Counter)
 
-        for lit_item_dir in os.listdir(self.lit_dir):
-            if lit_item_dir[0] == '.':
+        for item_dir in os.listdir(self.lit_dir):
+            if item_dir[0] == '.':
                 continue
-            if not os.path.isdir(os.path.join(self.lit_dir, lit_item_dir)):
+            if not os.path.isdir(os.path.join(self.lit_dir, item_dir)):
                 continue
-            logger.debug(f'  adding lit_item_dir {lit_item_dir}')
-            item = LitItem(self, lit_item_dir)
+            logger.debug(f'  adding item_dir {item_dir}')
+            item = LitItem(self, item_dir)
             self.max_itemname_len = max(self.max_itemname_len, len(item.name))
             self.items.append(item)
             for tag in item.tags:

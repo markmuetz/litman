@@ -5,7 +5,7 @@ from litman.command_parser import parse_commands
 from litman.setup_logging import setup_logger, add_file_logging
 from litman.litman import LitMan, load_config
 
-LITMAN_BASEDIR = '$HOME/LitMan'
+LITMAN_BASEDIR = '$HOME/LitMan/literature'
 
 ARGS = [(['--DEBUG', '-D'], {'action': 'store_true', 'default': False}),
         (['--litman-dir', '-l'], {'help': 'LitMan directory', 'default': LITMAN_BASEDIR})]
@@ -24,15 +24,18 @@ def main(argv):
     logger = setup_logger(debug, colour=True)
     cmd_string = ' '.join(argv)
     litmanrc_fn, config = load_config()
+    if config:
+        litman_dir = config['litman_dir']
 
     if not os.path.exists(litman_dir):
-        print('You can change your litman dir by editing $HOME/.litmanrc')
+        print(f'LitMan dir set to: {litman_dir}')
+        print('You can change your LitMan dir by editing $HOME/.litmanrc')
         print('e.g.')
         print('')
-        print('[litman]')
+        print('[LitMan]')
         print('litman_dir = /path/to/dir')
         print('')
-        r = input('Create litman dir {litman_dir}? (y/[n]): ')
+        r = input(f'Create LitMan dir: {litman_dir}? (y/[n]): ')
         if r.lower() != 'y':
             logger.debug(f'user exiting')
             print('Exiting')
@@ -42,7 +45,7 @@ def main(argv):
     add_file_logging(os.path.join(litman_dir, '.litman.log'))
 
     logger.debug(f'CMD: {cmd_string}')
-    if os.path.exists(litmanrc_fn):
+    if litmanrc_fn and os.path.exists(litmanrc_fn):
         logger.debug(f'reading config {litmanrc_fn}')
     logger.debug(f'using litman_dir {litman_dir}')
 

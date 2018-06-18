@@ -1,8 +1,8 @@
 """Generate .bib bibtex file from citations in .tex files"""
 import os
 
-ARGS = [(['-o', '--outfile'], {'help': 'Name of output file'}),
-        (['-d', '--dry-run'], {'help': 'Dry run only', 'action': 'store_true'}),
+ARGS = [(['--outfile', '-o'], {'help': 'Name of output file'}),
+        (['--dry-run', '-d'], {'help': 'Dry run only', 'action': 'store_true'}),
         (['infile'], {'nargs': 1, 'help': 'Name of input file'})]
 
 
