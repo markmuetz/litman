@@ -158,6 +158,52 @@ class LitItem:
         else:
             return ''
 
+    def year(self):
+        years = []
+
+        if self.has_bib:
+            bib_year = int(self.bib_entry.fields['year'])
+            years.append(bib_year)
+        if self.has_mag:
+            mag_year = self.mag_entry()['Y']
+            years.append(mag_year)
+        if 'import_pdf' in self.tags or 'import_bib' in self.tags:
+            name_year = re.match('\D*(?P<year>\d*)\D*', self.name).group('year')
+            if len(name_year) != 4:
+                logger.warn(f'{self.name}: Year {name_year} in wrong format')
+            else:
+                name_year = int(name_year)
+                years.append(name_year)
+
+        if years[1:] != years[:-1]:
+            logger.warn(f'{self.name}: Elements not all equal: {years}')
+
+        if years:
+            return years[0]
+        else:
+            return -999
+
+
+    def _format_bib_authors(self):
+        authors = self.bib_entry.persons['author']
+        # returns last names of authors.
+        return ', '.join([a.last()[0] for a in authors])
+
+    def _format_mag_authors(self):
+        if 'E' not in self.mag_entry():
+            return ''
+        authors = self.mag_entry()['E']['ANF']
+        # returns last names of authors.
+        return ', '.join([a['LN'] for a in authors])
+
+    def authors(self):
+        if self.has_bib:
+            return self._format_bib_authors()
+        elif self.has_mag:
+            return self._format_mag_authors()
+        else:
+            return ''
+
     def mag_entry(self):
         if not self._mag_loaded:
             self._load_mag()
@@ -339,6 +385,8 @@ class LitMan:
                 items = sorted(items, key=lambda item: len(item.cites))
             elif sort == 'cited-by':
                 items = sorted(items, key=lambda item: len(item.cited_by))
+            elif sort == 'year':
+                items = sorted(items, key=lambda item: item.year())
             else:
                 items = sorted(items, key=lambda item: getattr(item, sort))
 
@@ -348,16 +396,17 @@ class LitMan:
         # Handle a broken pipe:
         signal(SIGPIPE, SIG_DFL) 
 
-        fmt = f'{{0:<{self.max_itemname_len + 1}}}: {{1:>5}} {{2:>5}} {{3:>5}} {{4:>5}} {{5:>5}} {{6:<50}} {{7}}'
-        print(fmt.format(*['item_name', 'pdf', 'bib', 'mag', 'cites', 'cited', 'title', 'tags']))
-        print('=' * len(fmt.format(*['item_name', 'pdf', 'bib', 'mag', 'cites', 'cited', 'title', 'tags'])))
+        fmt = f'{{0:<{self.max_itemname_len + 1}}}: {{1:<20}} {{2:>4}} {{3}}/{{4}}/{{5}} {{6:>5}} {{7:>5}} {{8:<50}} {{9}}'
+        print(fmt.format(*['item_name', 'authors', 'year', 'P', 'B', 'M', 'cites', 'cited', 'title', 'tags']))
+        print('=' * len(fmt.format(*['item_name', 'authors', 'year', 'P', 'B', 'M', 'cites', 'cited', 'title', 'tags'])))
 
         def bstr(b):
-            return 'True' if b else 'False'
+            return 'T' if b else 'F'
 
         for item in items:
             if not tag_filter or tag_filter in item.tags:
-                print(fmt.format(item.name, bstr(item.has_pdf), bstr(item.has_bib), bstr(item.has_mag), 
+                print(fmt.format(item.name, item.authors()[:20], item.year(),
+                                 bstr(item.has_pdf), bstr(item.has_bib), bstr(item.has_mag), 
                                  len(item.cites), len(item.cited_by), item.title()[:50], item.tags))
 
     def rescan(self):

@@ -11,6 +11,9 @@ def main(litman, args):
         print('Could not find item')
         return
     print(f'Name: {item.name}')
+    print(f'title: {item.title()}')
+    print(f'authors: {item.authors()}')
+    print(f'year: {item.year()}')
     print(f'has_pdf: {item.has_pdf}')
     print(f'has_bib: {item.has_bib}')
     print(f'has_extracted_text: {item.has_extracted_text}')
