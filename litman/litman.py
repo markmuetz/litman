@@ -265,17 +265,23 @@ class LitItem:
         with open(self.mag_entry_fn, 'w') as f:
             simplejson.dump(mag_entry, f)
 
-    def add_cites(self, ref_item_name):
-        self.cites = list(set(self.cites + [ref_item_name]))
-        logger.debug(self.cites)
+    def _save_cites(self):
         with open(self.cites_fn, 'w') as f:
             simplejson.dump(self.cites, f)
 
-    def add_cited_by(self, item_name):
-        self.cited_by = list(set(self.cited_by + [item_name]))
-        logger.debug(self.cited_by)
+    def _save_cited_by(self):
         with open(self.cited_by_fn, 'w') as f:
             simplejson.dump(self.cited_by, f)
+
+    def add_cites(self, ref_item_name):
+        self.cites = list(set(self.cites + [str(ref_item_name)]))
+        logger.debug(self.cites)
+        self._save_cites()
+
+    def add_cited_by(self, item_name):
+        self.cited_by = list(set(self.cited_by + [(item_name)]))
+        logger.debug(self.cited_by)
+        self._save_cited_by()
 
     def _load_mag(self):
         with open(self.mag_entry_fn, 'r') as f:
