@@ -104,11 +104,13 @@ class LitItem:
         self.mag_entry_fn = os.path.join(self.litman.lit_dir, name, 'mag_entry.json')
         self.cites_fn = os.path.join(self.litman.lit_dir, name, 'cites.json')
         self.cited_by_fn = os.path.join(self.litman.lit_dir, name, 'cited_by.json')
+        self.title_fn = os.path.join(self.litman.lit_dir, name, 'title.txt')
 
         self.tags_fn = os.path.join(self.litman.lit_dir, name, 'tags.txt')
 
         self.level = int(open(self.level_fn, 'r').read())
 
+        self.has_title_file = os.path.exists(self.title_fn)
         self.has_pdf = os.path.exists(self.pdf_fn)
         self.has_bib = os.path.exists(self.bib_fn)
         self.has_extracted_text = os.path.exists(self.extracted_text_fn)
@@ -116,20 +118,6 @@ class LitItem:
         self.has_mag = os.path.exists(self.mag_entry_fn)
         self.has_cites = os.path.exists(self.cites_fn)
         self.has_cited_by = os.path.exists(self.cited_by_fn)
-
-        if self.has_bib:
-            self.bib_data = parse_bib_file(self.bib_fn)
-            assert len(self.bib_data.entries.keys()) == 1
-            self.bib_name = self.bib_data.entries.keys()[0]
-            self.bib_entry = self.bib_data.entries.values()[0]
-        else:
-            self.bib_data = None
-
-        if self.has_extracted_text:
-            with open(self.extracted_text_fn, 'r') as f:
-                self.extracted_text = f.read()
-        else:
-            self.extracted_text = None
 
         if self.has_cites:
             with open(self.cites_fn, 'r') as f:
@@ -149,12 +137,50 @@ class LitItem:
             self.tags = []
 
         self._mag_loaded = False
+        self._bib_loaded = False
+        self._extracted_text_loaded = False
+
+    def _load_bib(self):
+        if self.has_bib:
+            bib_data = parse_bib_file(self.bib_fn)
+            assert len(bib_data.entries.keys()) == 1
+            self._bib_name = bib_data.entries.keys()[0]
+            self._bib_entry = bib_data.entries.values()[0]
+        else:
+            self._bib_name = None
+            self._bib_entry = None
+        self._bib_loaded = True
+
+    def bib_name(self):
+        if not self._bib_loaded:
+            self._load_bib()
+        return self._bib_name
+
+    def bib_entry(self):
+        if not self._bib_loaded:
+            self._load_bib()
+        return self._bib_entry
+
+    def extracted_text(self):
+        if not self._extracted_text_loaded:
+            self._load_extracted_text()
+        return self._extracted_text
+
+    def _load_extracted_text(self):
+        if self.has_extracted_text:
+            with open(self.extracted_text_fn, 'r') as f:
+                self._extracted_text = f.read()
+        else:
+            self._extracted_text = None
 
     def title(self):
         if self.has_bib:
-            return self.bib_entry.fields['title']
+            return self.bib_entry().fields['title']
         elif self.has_mag:
             return self.mag_entry()['Ti']
+        elif os.path.exists(self.title_fn):
+            with open(self.title_fn, 'r') as f:
+                return f.read().strip()
         else:
             return ''
 
@@ -162,7 +188,7 @@ class LitItem:
         years = []
 
         if self.has_bib:
-            bib_year = int(self.bib_entry.fields['year'])
+            bib_year = int(self.bib_entry().fields['year'])
             years.append(bib_year)
         if self.has_mag:
             mag_year = self.mag_entry()['Y']
@@ -184,25 +210,28 @@ class LitItem:
             return -999
 
 
-    def _format_bib_authors(self):
-        authors = self.bib_entry.persons['author']
+    def _get_bib_authors(self):
+        authors = self.bib_entry().persons['author']
         # returns last names of authors.
-        return ', '.join([a.last()[0] for a in authors])
+        return [a.last()[0] for a in authors]
 
-    def _format_mag_authors(self):
+    def _get_mag_authors(self):
         if 'E' not in self.mag_entry():
             return ''
         authors = self.mag_entry()['E']['ANF']
         # returns last names of authors.
-        return ', '.join([a['LN'] for a in authors])
+        return [a['LN'] for a in authors]
 
-    def authors(self):
+    def get_authors(self):
         if self.has_bib:
-            return self._format_bib_authors()
+            return self._get_bib_authors()
         elif self.has_mag:
-            return self._format_mag_authors()
+            return self._get_mag_authors()
         else:
             return ''
+
+    def authors(self):
+        return ', '.join(self.get_authors())
 
     def mag_entry(self):
         if not self._mag_loaded:
@@ -211,6 +240,15 @@ class LitItem:
 
     def append_tag(self, tag):
         _append_tag(self.tags_fn, tag)
+
+    def set_title(self, title):
+        if os.path.exists(self.title_fn):
+            logger.error('Title should not already be set!')
+            raise Exception('Title should not already be set!')
+
+        logger.info(f'Setting title: {title}')
+        with open(self.title_fn, 'w') as f:
+            f.write(title)
 
     def add_pdf(self, pdf_fn):
         _extract_text(pdf_fn, self.extracted_text_fn)
@@ -255,8 +293,6 @@ class LitItem:
 
 
 class LitMan:
-    BIB_COUNTER_FIELDS = ['year', 'publisher', 'journal']
-
     def __init__(self, lit_dir):
         self.lit_dir = lit_dir
         self.items = []
@@ -328,11 +364,13 @@ class LitMan:
                         if create_items:
                             logger.info(f'Creating ref for {ref_mag_id}')
                             ref_item = self.create_item(str(ref_mag_id), item.level - 1)
-                    if create_items:
+                        else:
+                            ref_item = None
+                    if ref_item:
                         ref_item.append_tag('mag_ref')
 
-                item.add_cites(ref_item.name)
-                if create_items:
+                item.add_cites(ref_mag_id)
+                if ref_item:
                     ref_item.add_cited_by(item.name)
 
 
@@ -353,13 +391,15 @@ class LitMan:
         item = LitItem(self, item_name)
         return item
 
-    def get_items(self, tag_filter=None, 
+    def get_items(self, tag_filter=None, has_title_file=None,
                   has_pdf=None, has_bib=None, has_extracted_text=None, has_mag=None,
                   level=None):
         self._scan()
         items = [item for item in self.items]
         if tag_filter:
             items = [item for item in items if tag_filter in item.tags]
+        if has_title_file is not None:
+            items = [item for item in items if item.has_title_file == has_title_file]
         if has_pdf is not None:
             items = [item for item in items if item.has_pdf == has_pdf]
         if has_bib is not None:
@@ -376,9 +416,9 @@ class LitMan:
         self._scan()
         return self._tags.most_common()
 
-    def list_items(self, tag_filter=None, sort_on=['name'], reverse=False, level=0):
+    def list_items(self, tag_filter=None, sort_on=['name'], reverse=False, level=0, **kwargs):
         self._scan()
-        items = self.get_items(tag_filter, level=level)
+        items = self.get_items(tag_filter, level=level, **kwargs)
 
         for sort in sort_on:
             if sort == 'cites':
@@ -422,7 +462,7 @@ class LitMan:
         all_matches = []
         m = re.compile(text, flags=flags)
         for item in [item for item in self.items if item.has_extracted_text]:
-            matches = list(re.finditer(m, item.extracted_text))
+            matches = list(re.finditer(m, item.extracted_text()))
             if matches:
                 all_matches.append((item, matches))
                 logger.debug(f'found matches for {item.name}')
@@ -468,18 +508,42 @@ class LitMan:
             if not item.has_bib:
                 logger.error(f'No bib for {item.name}')
             else:
-                logger.info(f'Creating bib entry: {item.bib_name}')
-                bib_data_dict[item.bib_name] = item.bib_entry
+                logger.info(f'Creating bib entry: {item.bib_name()}')
+                bib_data_dict[item.bib_name()] = item.bib_entry()
         return BibliographyData(bib_data_dict) 
+    
+
+    def stats(self, level):
+        if not self._scanned:
+            self._scan()
+        stat_counters = defaultdict(Counter)
+
+        for item in self.get_items(level=level):
+            if item.has_mag:
+                stat_counters['year'][item.year()] += 1
+                if 'PB' in item.mag_entry()['E']:
+                    stat_counters['publisher'][item.mag_entry()['E']['PB'].lower()] += 1
+                if 'VFN' in item.mag_entry()['E']:
+                    stat_counters['journal'][item.mag_entry()['E']['VFN'].lower()] += 1
+            elif item.has_bib:
+                stat_counters['year'][item.year()] += 1
+                if 'journal' in item.bib_entry().fields:
+                    stat_counters['journal'][item.bib_entry().fields['journal'].lower()] += 1
+
+            for tag in item.tags:
+                stat_counters['tag'][tag] += 1
+            for author in item.get_authors():
+                if author:
+                    stat_counters['author'][author] += 1
+        self._stat_counters = stat_counters
+
+        return stat_counters
 
     def _scan(self):
         if self._scanned:
             return
         self._scanned = True
         self.max_itemname_len = 0
-
-        tags = Counter()
-        bib_counters = defaultdict(Counter)
 
         for item_dir in os.listdir(self.lit_dir):
             if item_dir[0] == '.':
@@ -490,13 +554,3 @@ class LitMan:
             item = LitItem(self, item_dir)
             self.max_itemname_len = max(self.max_itemname_len, len(item.name))
             self.items.append(item)
-            for tag in item.tags:
-                tags[tag] += 1
-
-            if item.has_bib:
-                for field in item.bib_entry.fields.keys():
-                    if field.lower() not in self.BIB_COUNTER_FIELDS:
-                        continue
-                    bib_counters[field.lower()][item.bib_entry.fields[field].lower()] += 1
-        self._bib_counters = bib_counters
-        self._tags = tags

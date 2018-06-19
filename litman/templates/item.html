@@ -9,13 +9,13 @@
         <h2>{% if item.has_pdf %}Has PDF{% else %}No PDF{% endif %}</h2>
         {% if item.has_bib %}
         <h2>Bib:</h2>
-        <p>{{ item.bib_entry }}</p>
+        <p>{{ item.bib_entry() }}</p>
         {% else %}
         <h2>No bib</h2>
         {% endif %}
         {% if item.has_extracted_text %}
         <h2>Extracted text:</h2>
-        <p>{{ item.extracted_text[:500] }}</p>
+        <p>{{ item.extracted_text()[:500] }}</p>
         {% else %}
         <h2>No extracted text</h2>
         {% endif %}

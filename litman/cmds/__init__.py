@@ -6,6 +6,7 @@ logger = getLogger('litman.cmds')
 
 commands = [
     'build-refs',
+    'check-titles',
     'display',
     'gen_bib',
     'import-bib',
@@ -15,6 +16,7 @@ commands = [
     'mag-search',
     'search',
     'show',
+    'stats',
     'version',
 ]
 

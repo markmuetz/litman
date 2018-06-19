@@ -10,6 +10,7 @@ ARGS = [(['--item', '-i'], {'help': 'Item to perform search on'}),
         (['--force', '-f'], {'help': 'Force refresh', 'action': 'store_true'}),
         (['--show-all', '-s'], {'help': 'Show all info', 'action': 'store_true'}),
         (['--tag-filter', '-t'], {'help': 'tag to filter on', 'default': None}),
+        (['--has-filters'], {'help': 'has attr filter on (comma sep, e.g. <has>=True)', 'default': None}),
         (['--mag-items-only', '-m'], {'help': 'only perform on mag_items', 'action': 'store_true'}),
         (['--level', '-l'], {'help': 'level to show', 'default': None, 'type': int}),
         (['--title'], {'help': 'Perform search on title'})]
@@ -94,7 +95,13 @@ def main(litman, args):
                 if args.show_all:
                     print(simplejson.dumps(entry, indent=2))
         else:
-            items = litman.get_items(tag_filter=args.tag_filter, level=args.level)
+            kwargs = {}
+            if args.has_filters:
+                for has_filter in args.has_filters.split(','):
+                    has_name, has_val = has_filter.split('=')
+                    kwargs[has_name] = has_val == 'True'
+
+            items = litman.get_items(tag_filter=args.tag_filter, level=args.level, **kwargs)
             for i, item in enumerate(items):
                 if not item.title():
                     logger.info(f'No title for {item.name}')

@@ -24,13 +24,13 @@ def main(litman, args):
         print('===============')
         print('= bib entry   =')
         print('===============')
-        print(item.bib_entry)
+        print(item.bib_entry())
         print('===============')
     if item.has_extracted_text:
         print('===============')
         print('= pdf text    =')
         print('===============')
-        print(item.extracted_text[:1000])
+        print('\n'.join(item.extracted_text().split('\n')[:20]))
         print('===============')
     if item.has_mag:
         print('===============')

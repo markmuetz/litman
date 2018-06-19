@@ -20,8 +20,8 @@ def main(litman, args):
         for match in matches:
             span = match.span()
             start_index = max(span[0] - args.context, 0)
-            end_index = min(span[1] + args.context, len(item.extracted_text))
-            match_with_context = item.extracted_text[start_index:end_index]
+            end_index = min(span[1] + args.context, len(item.extracted_text()))
+            match_with_context = item.extracted_text()[start_index:end_index]
             if args.ignore_case:
                 flags =  re.IGNORECASE
             else:
