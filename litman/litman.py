@@ -4,6 +4,7 @@ from logging import getLogger
 from subprocess import call, Popen
 from collections import Counter, defaultdict
 from signal import signal, SIGPIPE, SIG_DFL
+import webbrowser
 
 import simplejson
 from configparser import ConfigParser
@@ -172,6 +173,21 @@ class LitItem:
                 self._extracted_text = f.read()
         else:
             self._extracted_text = None
+
+    def doi_url(self):
+        if self.has_mag:
+            if 'DOI' in self.mag_entry()['E']:
+                return 'https://doi.org/' + self.mag_entry()['E']['DOI']
+        return ''
+
+    def open_doi(self):
+        doi_url = self.doi_url()
+        if doi_url:
+            webbrowser.open(doi_url)
+        else:
+            print(f'DOI for {self.name} not known')
+
+
 
     def title(self):
         if self.has_bib:
