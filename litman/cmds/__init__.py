@@ -15,6 +15,7 @@ commands = [
     'mag-cited-by',
     'mag-search',
     'search',
+    'shell',
     'show',
     'stats',
     'version',
