@@ -3,6 +3,7 @@ import re
 from logging import getLogger
 from subprocess import call, Popen
 from collections import Counter, defaultdict
+from signal import signal, SIGPIPE, SIG_DFL
 
 import simplejson
 from configparser import ConfigParser
@@ -332,17 +333,31 @@ class LitMan:
     def list_items(self, tag_filter=None, sort_on=['name'], reverse=False, level=0):
         self._scan()
         items = self.get_items(tag_filter, level=level)
+
         for sort in sort_on:
-            items = sorted(items, key=lambda item: getattr(item, sort))
-            if reverse:
-                items = items[::-1]
+            if sort == 'cites':
+                items = sorted(items, key=lambda item: len(item.cites))
+            elif sort == 'cited-by':
+                items = sorted(items, key=lambda item: len(item.cited_by))
+            else:
+                items = sorted(items, key=lambda item: getattr(item, sort))
+
+        if reverse:
+            items = items[::-1]
+
+        # Handle a broken pipe:
+        signal(SIGPIPE, SIG_DFL) 
 
         fmt = f'{{0:<{self.max_itemname_len + 1}}}: {{1:>5}} {{2:>5}} {{3:>5}} {{4:>5}} {{5:>5}} {{6:<50}} {{7}}'
-        print(fmt.format(*['item_name', 'pdf', 'bib', 'mag', 'cites', 'cited', 'tags', 'title']))
-        print('=' * len(fmt.format(*['item_name', 'pdf', 'bib', 'mag', 'cites', 'cited', 'tags', 'title'])))
+        print(fmt.format(*['item_name', 'pdf', 'bib', 'mag', 'cites', 'cited', 'title', 'tags']))
+        print('=' * len(fmt.format(*['item_name', 'pdf', 'bib', 'mag', 'cites', 'cited', 'title', 'tags'])))
+
+        def bstr(b):
+            return 'True' if b else 'False'
+
         for item in items:
             if not tag_filter or tag_filter in item.tags:
-                print(fmt.format(item.name, item.has_pdf, item.has_bib, item.has_mag, 
+                print(fmt.format(item.name, bstr(item.has_pdf), bstr(item.has_bib), bstr(item.has_mag), 
                                  len(item.cites), len(item.cited_by), item.title()[:50], item.tags))
 
     def rescan(self):
