@@ -6,7 +6,7 @@ try:
 except ImportError:
     from distutils.core import setup, Extension
 
-from omnium.version import get_version
+from litman.version import get_version
 
 
 def read(fname):
@@ -37,7 +37,6 @@ setup(
         'pybtex',
         'configparser',
         'requests',
-        'setup',
         ],
     package_data={ },
     url='https://github.com/markmuetz/litman',
