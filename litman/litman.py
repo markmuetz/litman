@@ -126,6 +126,9 @@ class LitItem:
         else:
             self.cites = []
 
+        self.local_cites = []
+        self.local_cited_by = []
+
         if self.has_cited_by:
             with open(self.cited_by_fn, 'r') as f:
                 self.cited_by = simplejson.load(f)
@@ -396,6 +399,33 @@ class LitMan:
                 if ref_item:
                     ref_item.add_cited_by(item.name)
 
+    def build_local_refs(self, level=None, create_items=True):
+        mag_items = self.get_items(has_mag=True, level=level)
+        mag_id_dict = {}
+        for item in mag_items:
+            mag_id = item.mag_entry()['Id']
+            if mag_id in mag_id_dict:
+                logger.warn(f'Duplicate entries for {item.name}')
+            mag_id_dict[mag_id] = item
+
+        for item in mag_items:
+            if 'RId' not in item.mag_entry():
+                logger.warn(f'No RId for {item.name}')
+                continue
+            for ref_mag_id in set(item.mag_entry()['RId']):
+                if ref_mag_id in mag_id_dict:
+                    ref_item = mag_id_dict[ref_mag_id]
+                    logger.info(f'{item.name} -> {ref_item.name}')
+                else:
+                    try:
+                        ref_item = self.get_item(str(ref_mag_id))
+                        logger.info(f'Item already exists {ref_mag_id}')
+                    except:
+                        ref_item = None
+
+                if ref_item:
+                    item.local_cites.append(ref_item)
+                    ref_item.local_cited_by.append(item)
 
     def create_item(self, name, level):
         if not self._scanned:
@@ -411,7 +441,10 @@ class LitMan:
         return item
 
     def get_item(self, item_name):
-        item = LitItem(self, item_name)
+        if self._scanned and item_name in self._item_cache:
+            item = self._item_cache[item_name]
+        else:
+            item = LitItem(self, item_name)
         return item
 
     def get_items(self, tag_filter=None, has_title_file=None,
@@ -568,6 +601,7 @@ class LitMan:
         self._scanned = True
         self.max_itemname_len = 0
 
+        self._item_cache = {}
         for item_dir in os.listdir(self.lit_dir):
             if item_dir[0] == '.':
                 continue
@@ -577,3 +611,5 @@ class LitMan:
             item = LitItem(self, item_dir)
             self.max_itemname_len = max(self.max_itemname_len, len(item.name))
             self.items.append(item)
+            self._item_cache[item.name] = item
+
