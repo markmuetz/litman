@@ -7,7 +7,7 @@ flask run
 from flask import Flask, request
 from flask import render_template
 
-from litman.litman import LitMan, load_config
+from litman import LitMan, load_config
 
 app = Flask(__name__)
 

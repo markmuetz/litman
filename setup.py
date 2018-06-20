@@ -38,9 +38,14 @@ setup(
         'configparser',
         'requests',
         ],
+    # Install with e.g. `pip install -e .[experimental]`
+    extras_require= {
+        'experimental': ['flask', 'graphviz'],
+        },
     package_data={ },
     url='https://github.com/markmuetz/litman',
     classifiers=[
+        'Development Status :: 3 - Alpha',
         'Environment :: Console',
         'Intended Audience :: Science/Research',
         'Natural Language :: English',
