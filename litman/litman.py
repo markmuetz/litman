@@ -141,6 +141,9 @@ class LitItem:
         self._bib_loaded = False
         self._extracted_text_loaded = False
 
+    def __repr__(self):
+        return f"LitItem({self.litman.__repr__()}, '{self.name}')"
+
     def _load_bib(self):
         if self.has_bib:
             bib_data = parse_bib_file(self.bib_fn)
@@ -187,8 +190,6 @@ class LitItem:
         else:
             print(f'DOI for {self.name} not known')
 
-
-
     def title(self):
         if self.has_bib:
             return self.bib_entry().fields['title']
@@ -224,7 +225,6 @@ class LitItem:
             return years[0]
         else:
             return -999
-
 
     def _get_bib_authors(self):
         authors = self.bib_entry().persons['author']
@@ -310,9 +310,6 @@ class LitItem:
         else:
             logger.info(f'item {self.name} has no PDF')
 
-    def __repr__(self):
-        return f"LitItem('{self.name}')"
-
 
 class LitMan:
     def __init__(self, lit_dir):
@@ -320,6 +317,10 @@ class LitMan:
         self.items = []
         self._tags = []
         self._scanned = False
+
+    def __repr__(self):
+        return f"LitMan('{self.lit_dir}')"
+
 
     def import_pdf(self, import_dir):
         import_dir = os.path.join(os.getcwd(), import_dir)
