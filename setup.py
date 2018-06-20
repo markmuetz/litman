@@ -28,11 +28,13 @@ setup(
     packages=['litman',
               'litman.cmds',
               ],
-              #'litman.tests'],
+              # 'litman.tests'],
     scripts=[
         'bin/litman',
         'bin/litman_web',
         ],
+    # fstrings support needed.
+    python_requires='>=3.6',
     install_requires=[
         'pybtex',
         'configparser',
