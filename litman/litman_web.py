@@ -12,12 +12,12 @@ from litman import LitMan, load_config
 app = Flask(__name__)
 
 litmanrc_fn, config = load_config()
-litman = LitMan(config['litman_dir')
+litman = LitMan(config['litman_dir'])
 
 
 @app.route('/')
 def index():
-    return render_template('index.html', litman_dir=litman_dir)
+    return render_template('index.html', litman_dir=config['litmad_dir'])
 
 
 @app.route('/items')
