@@ -73,7 +73,7 @@ def _read_tags(tags_fn):
     return tags
 
 
-def _append_tag(tags_fn, tag):
+def _add_tag(tags_fn, tag):
     if os.path.exists(tags_fn):
         tags = _read_tags(tags_fn)
         tags.append(tag)
@@ -189,7 +189,9 @@ class LitItem:
         if self.has_bib:
             fields = self.bib_entry().fields
             if 'doi' in fields:
-                return 'https://doi.org/' + fields['doi']
+                doi = fields['doi']
+                doi = doi.replace('\\', '')
+                return 'https://doi.org/' + doi
         return ''
 
     def open_doi(self):
@@ -243,8 +245,9 @@ class LitItem:
     def authors(self):
         return ', '.join(self.get_authors())
 
-    def append_tag(self, tag):
-        _append_tag(self.tags_fn, tag)
+    def add_tag(self, tag):
+        _add_tag(self.tags_fn, tag)
+        self.tags = _read_tags(self.tags_fn)
 
     def set_title(self, title):
         if os.path.exists(self.title_fn):
@@ -272,12 +275,22 @@ class LitItem:
         else:
             logger.info(f'item {self.name} has no PDF')
 
+    def rename_tag(self, tag_old, tag_new):
+        if tag_old in self.tags:
+            os.remove(self.tags_fn)
+            for tag in self.tags:
+                if tag == tag_old:
+                    self.add_tag(tag_new)
+                else:
+                    self.add_tag(tag)
+
+
 
 class LitMan:
     def __init__(self, lit_dir):
         self.lit_dir = lit_dir
         self.items = []
-        self._tags = []
+        self._tags = Counter()
         self._scanned = False
 
     def __repr__(self):
@@ -306,7 +319,7 @@ class LitMan:
                 tags = os.path.split(os.path.relpath(pdf_fn, import_dir))[0].split(os.sep)
                 for tag in tags:
                     if tag:
-                        item.append_tag(tag)
+                        item.add_tag(tag)
 
                 if not item.has_pdf:
                     item.add_pdf(pdf_fn)
@@ -333,7 +346,7 @@ class LitMan:
 
                 for tag in tags:
                     if tag and tag.lower() != 'references':
-                        item.append_tag(tag)
+                        item.add_tag(tag)
 
                 if not item.has_bib:
                     item.add_bib_data(bib_name, bib_entry)
@@ -506,6 +519,8 @@ class LitMan:
         self.max_itemname_len = 0
 
         self._item_cache = {}
+        self._tags = Counter()
+
         for item_dir in os.listdir(self.lit_dir):
             if item_dir[0] == '.':
                 continue
@@ -513,7 +528,13 @@ class LitMan:
                 continue
             logger.debug(f'  adding item_dir {item_dir}')
             item = LitItem(self, item_dir)
+            for tag in item.tags:
+                self._tags[tag] += 1
             self.max_itemname_len = max(self.max_itemname_len, len(item.name))
             self.items.append(item)
             self._item_cache[item.name] = item
 
+    def rename_tag(self, tag_old, tag_new):
+        self._scan()
+        for item in self.get_items():
+            item.rename_tag(tag_old, tag_new)
