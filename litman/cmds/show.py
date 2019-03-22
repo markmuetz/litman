@@ -11,6 +11,7 @@ def main(litman, args):
         print('Could not find item')
         return
     print(f'Name: {item.name}')
+    print(f'DOI: {item.doi_url()}')
     print(f'title: {item.title()}')
     print(f'authors: {item.authors()}')
     print(f'year: {item.year()}')
@@ -18,8 +19,6 @@ def main(litman, args):
     print(f'has_bib: {item.has_bib}')
     print(f'has_extracted_text: {item.has_extracted_text}')
     print(f'tags: {item.tags}')
-    print(f'cites: {item.cites}')
-    print(f'cited_by: {item.cited_by}')
     if item.has_bib:
         print('===============')
         print('= bib entry   =')
@@ -32,9 +31,9 @@ def main(litman, args):
         print('===============')
         print('\n'.join(item.extracted_text().split('\n')[:20]))
         print('===============')
-    if item.has_mag:
+    if item.has_extracted_text:
         print('===============')
-        print('= mag entry   =')
+        print('= Notes       =')
         print('===============')
-        print(item.mag_entry())
+        print(item.notes())
         print('===============')

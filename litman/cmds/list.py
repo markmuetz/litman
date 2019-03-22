@@ -2,7 +2,6 @@
 ARGS = [(['--tag-filter', '-t'], {'help': 'tag to filter on', 'default': None}),
         (['--has-filters'], {'help': 'has attr filter on (comma sep, e.g. <has>=True)', 'default': None}),
         (['--sort-on', '-s'], {'help': 'list to sort on (comma separated)', 'default': 'name'}),
-        (['--level', '-l'], {'help': 'level to show', 'default': None, 'type': int}),
         (['--reverse', '-r'], {'help': 'reverse order', 'action': 'store_true'})]
 
 
@@ -16,4 +15,4 @@ def main(litman, args):
     litman.list_items(tag_filter=args.tag_filter, 
                       sort_on=sort_on, 
                       reverse=args.reverse,
-                      level=args.level, **kwargs)
+                      **kwargs)

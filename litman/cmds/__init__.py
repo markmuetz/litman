@@ -5,15 +5,15 @@ from logging import getLogger
 logger = getLogger('litman.cmds')
 
 commands = [
-    'build-refs',
     'check-titles',
     'display',
-    'gen_bib',
+    'gen-bib',
     'import-bib',
     'import-pdf',
     'list',
     'mag-cited-by',
     'mag-search',
+    'open-doi',
     'search',
     'shell',
     'show',

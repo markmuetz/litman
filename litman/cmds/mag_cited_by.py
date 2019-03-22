@@ -4,11 +4,10 @@ from logging import getLogger
 import simplejson
 
 from litman.litman import ItemNotFound, load_config, LitItem
-from litman.mag_client import MagClient, HttpException, PaperNotFound
+from litman.experimental.mag_client import MagClient, HttpException, PaperNotFound
 
 ARGS = [(['--item', '-i'], {'help': 'Item to perform search on'}),
         (['--tag-filter', '-t'], {'help': 'tag to filter on', 'default': None}),
-        (['--level', '-l'], {'help': 'level to show', 'default': None, 'type': int}),
         (['--create-items', '-c'], {'help': 'tag to filter on', 'action': 'store_true'})]
 
 logger = getLogger('litman.mag_search')
@@ -26,7 +25,7 @@ def _find_cited_by(litman, mag_client, item, create_items):
             entry = mag_client.get_single_entry(f'Id={mag_id}')
             if create_items:
                 logger.info(f'Creating item for {mag_id}')
-                fwd_item = litman.create_item(litman, str(mag_id), level=item.level + 1)
+                fwd_item = litman.create_item(litman, str(mag_id))
                 fwd_item.add_mag_data(entry)
 
 
@@ -46,8 +45,8 @@ def main(litman, args):
 
         _find_cited_by(litman, mag_client, item, args.create_items)
     else:
-        items = litman.get_items(has_mag=True, level=args.level)
+        items = litman.get_items()
         for item in items:
             _find_cited_by(litman, mag_client, item, args.create_items)
 
-    litman.build_refs(level=args.level + 1, create_items=False)
+    litman.build_refs(create_items=False)

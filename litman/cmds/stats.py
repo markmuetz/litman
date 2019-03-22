@@ -1,10 +1,9 @@
 """Get some stats on all files"""
-ARGS = [(['--plot', '-p'], {'help': 'Plot years', 'action': 'store_true'}),
-        (['--level', '-l'], {'help': 'level to show', 'default': None, 'type': int})]
+ARGS = [(['--plot', '-p'], {'help': 'Plot years', 'action': 'store_true'}) ]
 
 
 def main(litman, args):
-    stats = litman.stats(level=args.level)
+    stats = litman.stats()
     for key, stat in stats.items():
         print(key)
         for entry in stat.most_common()[:40]:

@@ -9,7 +9,7 @@ def main(litman, args):
         # Load up useful modules
         import litman
         from litman import LitMan, LitItem, load_config, ItemNotFound
-        from litman.mag_client import MagClient, HttpException, PaperNotFound
+        from litman.experimental.mag_client import MagClient, HttpException, PaperNotFound
         
         print(80 * '=')
         _, conf = load_config()

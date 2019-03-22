@@ -4,8 +4,7 @@ from logging import getLogger
 
 logger = getLogger('litman.cmds')
 
-ARGS = [(['--tag-filter', '-t'], {'help': 'tag to filter on', 'default': None}),
-        (['--level', '-l'], {'help': 'level to show', 'default': None, 'type': int})]
+ARGS = [(['--tag-filter', '-t'], {'help': 'tag to filter on', 'default': None})]
 
 
 def enter_title(item):
@@ -14,8 +13,7 @@ def enter_title(item):
     item.set_title(r)
 
 def main(litman, args):
-    items = litman.get_items(tag_filter=args.tag_filter, 
-                             level=args.level)
+    items = litman.get_items(tag_filter=args.tag_filter)
 
     for item in items:
         if item.title():

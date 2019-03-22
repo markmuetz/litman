@@ -4,7 +4,7 @@ from logging import getLogger
 import simplejson
 
 from litman.litman import ItemNotFound, load_config, LitItem
-from litman.mag_client import MagClient, HttpException, PaperNotFound
+from litman.experimental.mag_client import MagClient, HttpException, PaperNotFound
 
 ARGS = [(['--item', '-i'], {'help': 'Item to perform search on'}),
         (['--force', '-f'], {'help': 'Force refresh', 'action': 'store_true'}),
@@ -12,7 +12,6 @@ ARGS = [(['--item', '-i'], {'help': 'Item to perform search on'}),
         (['--tag-filter', '-t'], {'help': 'tag to filter on', 'default': None}),
         (['--has-filters'], {'help': 'has attr filter on (comma sep, e.g. <has>=True)', 'default': None}),
         (['--mag-items-only', '-m'], {'help': 'only perform on mag_items', 'action': 'store_true'}),
-        (['--level', '-l'], {'help': 'level to show', 'default': None, 'type': int}),
         (['--title'], {'help': 'Perform search on title'})]
 
 
@@ -21,13 +20,7 @@ logger = getLogger('litman.mag_search')
 
 def search_title(litman, item, mag_client, title, force):
     try:
-        if item and item.has_mag and not force:
-            entry = item.mag_entry()
-        else:
-            entry = mag_client.title_search(title)
-            if item:
-                item.add_mag_data(entry)
-
+        entry = mag_client.title_search(title)
         logger.info(entry['Ti'])
 
         if 'E' in entry and 'DOI' in entry['E']:
@@ -101,7 +94,7 @@ def main(litman, args):
                     has_name, has_val = has_filter.split('=')
                     kwargs[has_name] = has_val == 'True'
 
-            items = litman.get_items(tag_filter=args.tag_filter, level=args.level, **kwargs)
+            items = litman.get_items(tag_filter=args.tag_filter, **kwargs)
             for i, item in enumerate(items):
                 if not item.title():
                     logger.info(f'No title for {item.name}')

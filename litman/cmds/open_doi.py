@@ -1,7 +1,7 @@
-"""Dislpay a given litman item"""
+"""Open DOI for a given litman item"""
 from litman.litman import ItemNotFound
 
-ARGS = [(['list_item'], {'nargs': 1, 'help': 'Display list item'})]
+ARGS = [(['list_item'], {'nargs': 1, 'help': 'Open DOI for item'})]
 
 
 def main(litman, args):
@@ -11,4 +11,5 @@ def main(litman, args):
         print('Could not find item')
         return
     print(f'Name: {item.name}')
-    item.display()
+    item.open_doi()
+
