@@ -54,10 +54,12 @@ def _get_cites_from_tex(tex_fn):
     parencites = []
         
     for l in lines:
-        cites.extend([m.group('cite') for m in re.finditer('\\\\cite\{(?P<cite>\w*)\}', l)])
+        for cite in [m.group('cite') for m in re.finditer('\\\\cite\{(?P<cite>.*?)\}', l)]:
+            cites.extend([s.strip() for s in cite.split(',')])
 
     for l in lines:
-        parencites.extend([m.group('parencite') for m in re.finditer('\\\\parencite\{(?P<parencite>\w*)\}', l)])
+        for cite in [m.group('parencite') for m in re.finditer('\\\\parencite\{(?P<parencite>.*?)\}', l)]:
+            parencites.extend([s.strip() for s in cite.split(',')])
 
     cites = list(set(cites))
     parencites = list(set(parencites))
