@@ -24,8 +24,8 @@ def _check_person(entry_key, person):
     for name in person.first_names + person.middle_names:
         if len(name) >= 2 and name == name.upper() and '-' not in name:
             print(f'{entry_key} All CAPS: {person}')
-        if name.endswith('.'):
-            print(f'{entry_key} Final period: {person}')
+        if name.endswith('.') or name.endswith(','):
+            print(f'{entry_key} Final punctuation: {person}')
 
 
 def _check_people(bib_data):
@@ -80,15 +80,17 @@ def _get_cites_from_tex(tex_fn):
     cites = []
     cites_dict = {}
 
-    for citestring in ['cite', 'parencite', 'citet', 'citep']:
-        pattern = '\\\\' + citestring + '\{(?P<cite>.*?)\}'
+    for citestring in ['citet', 'citep']:
+        pattern = '\\\\' + citestring + '.*?\{(?P<cite>.*?)\}'
+        new_cites = []
         for l in lines:
             citestring_cites = [m.group('cite') for m in re.finditer(pattern, l)]
             # Flatten list: https://stackoverflow.com/a/953097/54557
             citestring_cites = list(itertools.chain.from_iterable([c.split(',') for c in citestring_cites]))
-            cites.extend(citestring_cites)
-            cites_dict[citestring] = citestring_cites
-        cites_dict[citestring] = list(set(citestring_cites))
+            citestring_cites = [c.strip() for c in citestring_cites]
+            new_cites.extend(citestring_cites)
+        cites_dict[citestring] = list(set(new_cites))
+        cites.extend(new_cites)
 
     cites = list(set(cites))
 
