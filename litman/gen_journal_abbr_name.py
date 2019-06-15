@@ -26,6 +26,6 @@ def gen_journal_abbr_name_map(output_dir):
         simplejson.dump(jmap, f, indent=2)
 
 
-def load_journal_abbr_name_map(output_dir):
-    with open(os.path.join(output_dir, 'web_of_knowledge_journal_abbr_name_map.json'), 'r') as f:
+def load_journal_abbr_name_map(input_dir):
+    with open(os.path.join(input_dir, 'web_of_knowledge_journal_abbr_name_map.json'), 'r') as f:
         return simplejson.load(f)
