@@ -23,9 +23,9 @@ logger = getLogger('litman')
 def _check_person(entry_key, person):
     for name in person.first_names + person.middle_names:
         if len(name) >= 2 and name == name.upper() and '-' not in name:
-            print(f'{entry_key} All CAPS: {person}')
+            logger.warning(f'{entry_key} All CAPS: {person}')
         if name.endswith('.') or name.endswith(','):
-            print(f'{entry_key} Final punctuation: {person}')
+            logger.warning(f'{entry_key} Final punctuation: {person}')
 
 
 def _check_people(bib_data):
@@ -42,7 +42,7 @@ def _check_people(bib_data):
             for person in persons[1:]:
                 if (persons[0].first_names + persons[0].middle_names !=
                         person.first_names + person.middle_names):
-                    print((persons[0], person))
+                    logger.warning(f'NAME MISMATCH: {persons[0]} <-> {person}')
     return people, people_to_entry
 
 
@@ -480,12 +480,18 @@ class LitMan:
             # This is the one to check.
             item_entry = item.bib_entry()
             if 'journal' in item_entry.fields and item_entry.fields['journal'] not in jmap:
-                print(f'{k}: {item_entry.fields["journal"]}')
+                logger.warning(f'UNRECOGNIZED JOURNAL: {k}: {item_entry.fields["journal"]}')
+
+    def _check_fields(self, bib_data):
+        for k, entry in bib_data.entries.items():
+            if 'doi' not in entry.fields:
+                logger.warning(f'NO DOI: {k}')
 
     def check_bib(self, bib_fn):
         bib_data = parse_bib_file(bib_fn)
         _check_people(bib_data)
         self._check_journals(bib_data)
+        self._check_fields(bib_data)
 
     def _nice_journal_name_from_journal(self, entry, caps_name):
         caps_name = caps_name.split()
