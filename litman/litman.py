@@ -8,7 +8,6 @@ from signal import signal, SIGPIPE, SIG_DFL
 import webbrowser
 import markdown
 
-import simplejson
 from configparser import ConfigParser
 
 from pybtex.database import parse_file as parse_bib_file
@@ -16,6 +15,7 @@ from pybtex.database import BibliographyData
 
 from litman.find_dups import check_for_duplicates
 from litman.html_template import html_tpl
+from litman.gen_journal_abbr_name import load_journal_abbr_name_map
 
 logger = getLogger('litman')
 
@@ -471,9 +471,50 @@ class LitMan:
                     logger.debug(f'matches: {matches}')
         return all_matches
 
+    def _check_journals(self, bib_data):
+        jmap = load_journal_abbr_name_map(os.path.dirname(self.lit_dir))
+        # entry is the entry read in from the bib file.
+        for k, entry in bib_data.entries.items():
+            item = self.get_item(k)
+            # item_entry is the one in the litman database.
+            # This is the one to check.
+            item_entry = item.bib_entry()
+            if 'journal' in item_entry.fields and item_entry.fields['journal'] not in jmap:
+                print(f'{k}: {item_entry.fields["journal"]}')
+
     def check_bib(self, bib_fn):
         bib_data = parse_bib_file(bib_fn)
         _check_people(bib_data)
+        self._check_journals(bib_data)
+
+    def _nice_journal_name_from_journal(self, entry, caps_name):
+        caps_name = caps_name.split()
+        nice_name = []
+        for w in caps_name:
+            if w in ['FOR', 'OF', 'IN', 'THE']:
+                nice_name.append(w.lower())
+            elif w in ['IEEE']:
+                nice_name.append(w)
+            else:
+                nice_name.append(w.title())
+        entry.fields['journal'] = ' '.join(nice_name)
+
+    def _nice_title_from_journal(self, entry):
+        raw_title = entry.fields['title']
+        nice_title = []
+        for w in raw_title.split():
+            if w.lower() in ['for', 'of', 'in', 'the', 'by', 'from', 'a', 'an', 'and', 'or', 'on',
+                             'to', 'over', 'with', 'as', 'during', 'when', 'is', 'are']:
+                nice_title.append(w)
+            elif len(w) >= 2 and w == w.upper():
+                nice_title.append(w)
+            else:
+                nice_title.append(w.title())
+        logger.info(f'{raw_title} ->')
+        nice_title = ' '.join(nice_title)
+        nice_title = nice_title[0].upper() + nice_title[1:]
+        logger.info(f'{nice_title}')
+        entry.fields['title'] = nice_title
 
     def gen_bib_for_tex_dir(self, tex_dir, outfile, dry_run):
         tex_fns = _scan_dirs(tex_dir, '.tex')
@@ -483,6 +524,13 @@ class LitMan:
             all_cites.extend(all_cites_for_file)
         all_cites = list(set(all_cites))
         bib_data = self._create_bib(all_cites)
+
+        jmap = load_journal_abbr_name_map(os.path.dirname(self.lit_dir))
+        for key, entry in bib_data.entries.items():
+            self._nice_title_from_journal(entry)
+            if 'journal' in entry.fields and entry.fields['journal'] in jmap:
+                self._nice_journal_name_from_journal(entry, jmap[entry.fields['journal']])
+
         if dry_run:
             print(bib_data.to_string('bibtex'))
         else:
