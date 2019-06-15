@@ -1,5 +1,6 @@
 import os
 import re
+import itertools
 from logging import getLogger
 from subprocess import call, Popen
 from collections import Counter, defaultdict
@@ -83,7 +84,8 @@ def _get_cites_from_tex(tex_fn):
         pattern = '\\\\' + citestring + '\{(?P<cite>\w*)\}'
         for l in lines:
             citestring_cites = [m.group('cite') for m in re.finditer(pattern, l)]
-            citestring_cites = [c.strip() for c in citestring_cites.split(',')]
+            # Flatten list: https://stackoverflow.com/a/953097/54557
+            citestring_cites = list(itertools.chain.from_iterable([c.split(',') for c in citestring_cites]))
             cites.extend(citestring_cites)
             cites_dict[citestring] = citestring_cites
         cites_dict[citestring] = list(set(citestring_cites))
