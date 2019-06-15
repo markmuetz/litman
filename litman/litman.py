@@ -518,7 +518,7 @@ class LitMan:
                 nice_title.append(w.title())
         logger.info(f'{raw_title} ->')
         nice_title = ' '.join(nice_title)
-        nice_title = nice_title[0].upper() + nice_title[1:]
+        nice_title = '{' + nice_title[0].upper() + nice_title[1:] + '}'
         logger.info(f'{nice_title}')
         entry.fields['title'] = nice_title
 
