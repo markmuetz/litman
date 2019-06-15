@@ -81,7 +81,7 @@ def _get_cites_from_tex(tex_fn):
     cites_dict = {}
 
     for citestring in ['cite', 'parencite', 'citet', 'citep']:
-        pattern = '\\\\' + citestring + '\{(?P<cite>\w*)\}'
+        pattern = '\\\\' + citestring + '\{(?P<cite>.*?)\}'
         for l in lines:
             citestring_cites = [m.group('cite') for m in re.finditer(pattern, l)]
             # Flatten list: https://stackoverflow.com/a/953097/54557
