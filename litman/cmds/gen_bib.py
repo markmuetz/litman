@@ -10,10 +10,10 @@ ARGS = [(['--tag-filter', '-t'], {'help': 'tag to filter on', 'default': None}),
 def main(litman, args):
     if args.tag_filter:
         litman.gen_bib_for_tag(args.tag_filter, args.outfile, args.dry_run)
-    elif os.path.isfile(args.infile[0]):
-        litman.gen_bib_for_tex(args.infile[0], args.outfile, args.dry_run)
-    elif os.path.isdir(args.infile[0]):
-        litman.gen_bib_for_tex_dir(args.infile[0], args.outfile, args.dry_run)
+    elif os.path.isfile(args.infile):
+        litman.gen_bib_for_tex(args.infile, args.outfile, args.dry_run)
+    elif os.path.isdir(args.infile):
+        litman.gen_bib_for_tex_dir(args.infile, args.outfile, args.dry_run)
     else:
-        print(f'{args.infile[0]} not a file or dir')
+        print(f'{args.infile} not a file or dir')
 

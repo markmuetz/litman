@@ -19,6 +19,32 @@ from litman.html_template import html_tpl
 logger = getLogger('litman')
 
 
+def _check_person(entry_key, person):
+    for name in person.first_names + person.middle_names:
+        if len(name) >= 2 and name == name.upper() and '-' not in name:
+            print(f'{entry_key} All CAPS: {person}')
+        if name.endswith('.'):
+            print(f'{entry_key} Final period: {person}')
+
+
+def _check_people(bib_data):
+    people = defaultdict(list)
+    people_to_entry = {}
+    for k, entry in bib_data.entries.items():
+        for person in entry.persons['author']:
+            people[' '.join(person.last_names)].append(person)
+            people_to_entry[' '.join(person.last_names)] = entry
+            _check_person(k, person)
+
+    for lastname, persons in people.items():
+        if len(persons) > 1:
+            for person in persons[1:]:
+                if (persons[0].first_names + persons[0].middle_names !=
+                        person.first_names + person.middle_names):
+                    print((persons[0], person))
+    return people, people_to_entry
+
+
 def load_config():
     litmanrc_fn = os.path.join(os.path.expandvars('$HOME'), '.litmanrc')
     if os.path.exists(litmanrc_fn):
@@ -51,21 +77,21 @@ def _get_cites_from_tex(tex_fn):
     with open(tex_fn, 'r') as f:
         lines = f.readlines()
     cites = []
-    parencites = []
-        
-    for l in lines:
-        cites.extend([m.group('cite') for m in re.finditer('\\\\cite\{(?P<cite>\w*)\}', l)])
+    cites_dict = {}
 
-    for l in lines:
-        parencites.extend([m.group('parencite') for m in re.finditer('\\\\parencite\{(?P<parencite>\w*)\}', l)])
+    for citestring in ['cite', 'parencite', 'citet', 'citep']:
+        pattern = '\\\\' + citestring + '\{(?P<cite>\w*)\}'
+        for l in lines:
+            citestring_cites = [m.group('cite') for m in re.finditer(pattern, l)]
+            cites.extend(citestring_cites)
+            cites_dict[citestring] = citestring_cites
+        cites_dict[citestring] = list(set(citestring_cites))
 
     cites = list(set(cites))
-    parencites = list(set(parencites))
-    all_cites = list(set(cites + parencites))
-    logger.debug(tex_fn)
-    logger.debug(all_cites)
-    return cites, parencites, all_cites
 
+    logger.debug(tex_fn)
+    logger.debug(cites)
+    return cites, cites_dict
 
 def _read_tags(tags_fn):
     with open(tags_fn, 'r') as f:
@@ -404,7 +430,7 @@ class LitMan:
             items = items[::-1]
 
         # Handle a broken pipe:
-        signal(SIGPIPE, SIG_DFL) 
+        signal(SIGPIPE, SIG_DFL)
 
         fmt = f'{{0:<{self.max_itemname_len + 1}}}: {{1:<20}} {{2:>4}} {{3}}/{{4}} {{5:<50}} {{6}}'
         print(fmt.format(*['item_name', 'authors', 'year', 'P', 'B', 'title', 'tags']))
@@ -416,7 +442,7 @@ class LitMan:
         for item in items:
             if not tag_filter or tag_filter in item.tags:
                 print(fmt.format(item.name, item.authors()[:20], item.year(),
-                                 bstr(item.has_pdf), bstr(item.has_bib), 
+                                 bstr(item.has_pdf), bstr(item.has_bib),
                                  item.title()[:50], item.tags))
 
     def rescan(self):
@@ -440,11 +466,15 @@ class LitMan:
                     logger.debug(f'matches: {matches}')
         return all_matches
 
+    def check_bib(self, bib_fn):
+        bib_data = parse_bib_file(bib_fn)
+        _check_people(bib_data)
+
     def gen_bib_for_tex_dir(self, tex_dir, outfile, dry_run):
         tex_fns = _scan_dirs(tex_dir, '.tex')
         all_cites = []
         for tex_fn in tex_fns:
-            _, _, all_cites_for_file = _get_cites_from_tex(tex_fn)
+            all_cites_for_file, _ = _get_cites_from_tex(tex_fn)
             all_cites.extend(all_cites_for_file)
         all_cites = list(set(all_cites))
         bib_data = self._create_bib(all_cites)
@@ -464,7 +494,7 @@ class LitMan:
         return bib_data
 
     def gen_bib_for_tex(self, tex_fn, outfile, dry_run):
-        _, _, all_cites = _get_cites_from_tex(tex_fn)
+        all_cites, _ = _get_cites_from_tex(tex_fn)
         bib_data = self._create_bib(all_cites)
         if dry_run:
             print(bib_data.to_string('bibtex'))
@@ -489,8 +519,8 @@ class LitMan:
             else:
                 logger.info(f'Creating bib entry: {item.bib_name()}')
                 bib_data_dict[item.bib_name()] = item.bib_entry()
-        return BibliographyData(bib_data_dict) 
-    
+        return BibliographyData(bib_data_dict)
+
 
     def stats(self):
         if not self._scanned:

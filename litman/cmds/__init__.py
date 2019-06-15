@@ -5,8 +5,10 @@ from logging import getLogger
 logger = getLogger('litman.cmds')
 
 commands = [
+    'check-bib',
     'check-titles',
     'display',
+    'edit',
     'gen-bib',
     'import-bib',
     'import-pdf',
