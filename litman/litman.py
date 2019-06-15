@@ -83,6 +83,7 @@ def _get_cites_from_tex(tex_fn):
         pattern = '\\\\' + citestring + '\{(?P<cite>\w*)\}'
         for l in lines:
             citestring_cites = [m.group('cite') for m in re.finditer(pattern, l)]
+            citestring_cites = [c.strip() for c in citestring_cites.split(',')]
             cites.extend(citestring_cites)
             cites_dict[citestring] = citestring_cites
         cites_dict[citestring] = list(set(citestring_cites))
