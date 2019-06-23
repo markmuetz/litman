@@ -355,15 +355,13 @@ class LitMan:
                 if not item.has_pdf:
                     item.add_pdf(pdf_fn)
 
-    def import_bib(self, import_dir):
+    def import_bib(self, import_dir, tag=None):
         import_dir = os.path.join(os.getcwd(), import_dir)
         import_dir = _remove_periods(import_dir)
         bib_fns = _scan_dirs(import_dir, ext='.bib')
         for bib_fn in bib_fns:
             logger.info(f'Importing: {bib_fn}')
             bib_data = parse_bib_file(bib_fn)
-            tag = os.path.basename(os.path.dirname(bib_fn))
-            tags = os.path.split(os.path.relpath(bib_fn, import_dir))[0].split(os.sep)
 
             for bib_name, bib_entry in bib_data.entries.items():
                 item_name = bib_name
@@ -375,9 +373,8 @@ class LitMan:
                     logger.info(f'Creating item {item_name}')
                     item = self.create_item(item_name)
 
-                for tag in tags:
-                    if tag and tag.lower() != 'references':
-                        item.add_tag(tag)
+                if tag and tag.lower() != 'references':
+                    item.add_tag(tag)
 
                 if not item.has_bib:
                     item.add_bib_data(bib_name, bib_entry)
