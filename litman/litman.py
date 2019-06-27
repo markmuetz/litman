@@ -502,7 +502,10 @@ class LitMan:
                 nice_name.append(w.title())
         entry.fields['journal'] = ' '.join(nice_name)
 
-    def _nice_title_from_journal(self, entry):
+    def _nice_title_from_journal(self, key, entry):
+        if key in ['lin2007double']:
+            return
+
         raw_title = entry.fields['title']
         nice_title = []
         for w in raw_title.split():
@@ -530,7 +533,7 @@ class LitMan:
 
         jmap = load_journal_abbr_name_map(os.path.dirname(self.lit_dir))
         for key, entry in bib_data.entries.items():
-            self._nice_title_from_journal(entry)
+            self._nice_title_from_journal(key, entry)
             if 'journal' in entry.fields and entry.fields['journal'] in jmap:
                 self._nice_journal_name_from_journal(entry, jmap[entry.fields['journal']])
 
