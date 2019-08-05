@@ -26,6 +26,8 @@ def _check_person(entry_key, person):
             logger.warning(f'{entry_key} All CAPS: {person}')
         if name.endswith('.') or name.endswith(','):
             logger.warning(f'{entry_key} Final punctuation: {person}')
+    if person.last_names[0].startswith('others'):
+        logger.warning(f'{entry_key} contains "others"')
 
 
 def _check_people(bib_data):
