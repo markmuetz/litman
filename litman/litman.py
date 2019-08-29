@@ -505,16 +505,17 @@ class LitMan:
         entry.fields['journal'] = ' '.join(nice_name)
 
     def _nice_title_from_journal(self, key, entry):
-        if key in ['lin2007double']:
+        if key in ['lin2007double', 'rayleigh1916lix', 'grandpeix2010density1']:
             return
 
         raw_title = entry.fields['title']
         nice_title = []
         for w in raw_title.split():
             if w.lower() in ['for', 'of', 'in', 'the', 'by', 'from', 'a', 'an', 'and', 'or', 'on',
-                             'to', 'over', 'with', 'as', 'during', 'when', 'is', 'are']:
-                nice_title.append(w)
-            elif len(w) >= 2 and w == w.upper():
+                             'to', 'over', 'with', 'as', 'during', 'when', 'is', 'are', 'at', 
+                             'between', 'their', 'its']:
+                nice_title.append(w.lower())
+            elif len(w) >= 2 and sum(1 for c in w if c.isupper()) >= 2:
                 nice_title.append(w)
             else:
                 nice_title.append(w.title())
