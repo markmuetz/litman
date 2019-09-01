@@ -496,7 +496,7 @@ class LitMan:
         caps_name = caps_name.split()
         nice_name = []
         for w in caps_name:
-            if w in ['FOR', 'OF', 'IN', 'THE']:
+            if w in ['FOR', 'OF', 'IN', 'THE', 'AND']:
                 nice_name.append(w.lower())
             elif w in ['IEEE']:
                 nice_name.append(w)
