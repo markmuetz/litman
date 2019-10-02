@@ -513,7 +513,7 @@ class LitMan:
         for w in raw_title.split():
             if w.lower() in ['for', 'of', 'in', 'the', 'by', 'from', 'a', 'an', 'and', 'or', 'on',
                              'to', 'over', 'with', 'as', 'during', 'when', 'is', 'are', 'at', 
-                             'between', 'their', 'its']:
+                             'between', 'their', 'its', 'above']:
                 nice_title.append(w.lower())
             elif len(w) >= 2 and sum(1 for c in w if c.isupper()) >= 2:
                 nice_title.append(w)
