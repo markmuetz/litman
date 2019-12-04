@@ -320,8 +320,9 @@ class LitItem:
 
 
 class LitMan:
-    def __init__(self, lit_dir):
-        self.lit_dir = lit_dir
+    def __init__(self, litman_dir):
+        self.litman_dir = litman_dir
+        self.lit_dir = os.path.join(litman_dir, 'literature')
         self.items = []
         self._tags = Counter()
         self._scanned = False
@@ -361,10 +362,9 @@ class LitMan:
                     item.add_pdf(pdf_fn)
 
                 if project:
-                    os.makedirs(os.path.join(os.path.dirname(self.lit_dir), project), exist_ok=True)
-                    symlink = os.path.join(os.path.dirname(self.lit_dir), project, item_name)
-                    rel_target = os.path.relpath(os.path.join(self.lit_dir, item_name), os.path.join(os.path.dirname(self.lit_dir), project))
-                    print(rel_target)
+                    os.makedirs(os.path.join(self.litman_dir, project), exist_ok=True)
+                    symlink = os.path.join(self.litman_dir, project, item_name)
+                    rel_target = os.path.relpath(os.path.join(self.lit_dir, item_name), os.path.join(self.litman_dir, project))
                     if not os.path.exists(symlink):
                         os.symlink(rel_target, symlink)
 
@@ -482,7 +482,7 @@ class LitMan:
         return all_matches
 
     def _check_journals(self, bib_data):
-        jmap = load_journal_abbr_name_map(os.path.dirname(self.lit_dir))
+        jmap = load_journal_abbr_name_map(self.litman_dir)
         # entry is the entry read in from the bib file.
         for k, entry in bib_data.entries.items():
             item = self.get_item(k)
@@ -545,7 +545,7 @@ class LitMan:
         all_cites = list(set(all_cites))
         bib_data = self._create_bib(all_cites)
 
-        jmap = load_journal_abbr_name_map(os.path.dirname(self.lit_dir))
+        jmap = load_journal_abbr_name_map(self.litman_dir)
         for key, entry in bib_data.entries.items():
             self._nice_title_from_journal(key, entry)
             if 'journal' in entry.fields and entry.fields['journal'] in jmap:
