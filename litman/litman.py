@@ -330,7 +330,10 @@ class LitMan:
         return f"LitMan('{self.lit_dir}')"
 
 
-    def import_pdf(self, import_dir):
+    def import_pdf(self, import_dir, tags=[], project=None):
+        if project == os.path.basename(self.lit_dir):
+            raise ValueError(f'Invalid name for project: {project}')
+
         import_dir = os.path.join(os.getcwd(), import_dir)
         import_dir = _remove_periods(import_dir)
         hashes = check_for_duplicates([import_dir])
@@ -349,13 +352,21 @@ class LitMan:
                     logger.info(f'Creating item {item_name}')
                     item = self.create_item(item_name)
 
-                tags = os.path.split(os.path.relpath(pdf_fn, import_dir))[0].split(os.sep)
+                tags = os.path.split(os.path.relpath(pdf_fn, import_dir))[0].split(os.sep) + tags
                 for tag in tags:
                     if tag:
                         item.add_tag(tag)
 
                 if not item.has_pdf:
                     item.add_pdf(pdf_fn)
+
+                if project:
+                    os.makedirs(os.path.join(os.path.dirname(self.lit_dir), project), exist_ok=True)
+                    symlink = os.path.join(os.path.dirname(self.lit_dir), project, item_name)
+                    rel_target = os.path.relpath(os.path.join(self.lit_dir, item_name), os.path.join(os.path.dirname(self.lit_dir), project))
+                    print(rel_target)
+                    if not os.path.exists(symlink):
+                        os.symlink(rel_target, symlink)
 
     def import_bib(self, import_dir, tag=None):
         import_dir = os.path.join(os.getcwd(), import_dir)
@@ -512,7 +523,7 @@ class LitMan:
         nice_title = []
         for w in raw_title.split():
             if w.lower() in ['for', 'of', 'in', 'the', 'by', 'from', 'a', 'an', 'and', 'or', 'on',
-                             'to', 'over', 'with', 'as', 'during', 'when', 'is', 'are', 'at', 
+                             'to', 'over', 'with', 'as', 'during', 'when', 'is', 'are', 'at',
                              'between', 'their', 'its', 'above']:
                 nice_title.append(w.lower())
             elif len(w) >= 2 and sum(1 for c in w if c.isupper()) >= 2:
