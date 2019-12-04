@@ -4,4 +4,4 @@
 $ litman -h"""
 import sys
 from litman.litman_cmd import main
-exit(main(sys.argv))
+sys.exit(main(sys.argv))
