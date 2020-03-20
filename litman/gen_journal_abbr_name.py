@@ -4,7 +4,7 @@ import re
 import string
 
 import requests
-import simplejson
+import json
 
 
 def gen_journal_abbr_name_map(output_dir):
@@ -21,11 +21,11 @@ def gen_journal_abbr_name_map(output_dir):
         jabbrs = [re.match('.*<DD>\t(?P<jabbr>.*)', l).groups()[0] for l in lines if re.match('.*<DD>\t(?P<jabbr>.*)', l)]
         jnames = [re.match('.*<DT>(?P<jname>.*)', l).groups()[0] for l in lines if re.match('.*<DT>(?P<jname>.*)', l)]
         jmap.update(dict(zip(jabbrs, jnames)))
-        
+
     with open(os.path.join(output_dir, 'web_of_knowledge_journal_abbr_name_map.json'), 'w') as f:
-        simplejson.dump(jmap, f, indent=2)
+        json.dump(jmap, f, indent=2)
 
 
 def load_journal_abbr_name_map(input_dir):
     with open(os.path.join(input_dir, 'web_of_knowledge_journal_abbr_name_map.json'), 'r') as f:
-        return simplejson.load(f)
+        return json.load(f)

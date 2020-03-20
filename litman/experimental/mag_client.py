@@ -3,7 +3,7 @@ import time
 from logging import getLogger
 
 import requests
-import simplejson
+import json
 
 logger = getLogger('litman.magsearch')
 
@@ -96,11 +96,11 @@ class MagClient:
         return f'{self.BASE_URL}/interpret?query={query}&subscription-key={self.key}'
 
     def _parse_evaluate_response_text(self, resp_text):
-        resp_json = simplejson.loads(resp_text)
+        resp_json = json.loads(resp_text)
         return resp_json['entities']
 
     def _parse_interpret_response_text(self, resp_text):
-        resp_json = simplejson.loads(resp_text)
+        resp_json = json.loads(resp_text)
         return resp_json
 
     def _get_url(self, req_url, sleep=True):
@@ -137,7 +137,7 @@ class MagClient:
 
         entry_json = entities[0]
         if 'E' in entry_json:
-            extended_attr_json = simplejson.loads(entry_json['E'])
+            extended_attr_json = json.loads(entry_json['E'])
             entry_json['E'] = extended_attr_json
         return entry_json
 

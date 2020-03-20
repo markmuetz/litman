@@ -1,8 +1,6 @@
 """Find all articles that are cited by and item or items"""
 from logging import getLogger
 
-import simplejson
-
 from litman.litman import ItemNotFound, load_config, LitItem
 from litman.experimental.mag_client import MagClient, HttpException, PaperNotFound
 

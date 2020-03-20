@@ -1,7 +1,7 @@
 """Do a Microsoft Academic Graph search"""
 from logging import getLogger
 
-import simplejson
+import json
 
 from litman.litman import ItemNotFound, load_config, LitItem
 from litman.experimental.mag_client import MagClient, HttpException, PaperNotFound
@@ -63,7 +63,7 @@ def main(litman, args):
     if args.title:
         title, entry = search_title(litman, None, mag_client, args.title, args.force)
         if args.show_all:
-            print(simplejson.dumps(entry, indent=2))
+            print(json.dumps(entry, indent=2))
     elif args.item:
         try:
             item = litman.get_item(args.item)
@@ -74,7 +74,7 @@ def main(litman, args):
         title = item.title()
         title, entry = search_title(litman, item, mag_client, title, args.force)
         if args.show_all:
-            print(simplejson.dumps(entry, indent=2))
+            print(json.dumps(entry, indent=2))
     else:
         results = []
 
@@ -86,7 +86,7 @@ def main(litman, args):
                 results.append((title, entry))
 
                 if args.show_all:
-                    print(simplejson.dumps(entry, indent=2))
+                    print(json.dumps(entry, indent=2))
         else:
             kwargs = {}
             if args.has_filters:
@@ -105,7 +105,7 @@ def main(litman, args):
                 results.append((title, entry))
 
                 if args.show_all:
-                    print(simplejson.dumps(entry, indent=2))
+                    print(json.dumps(entry, indent=2))
 
         total = len(items)
         no_entry = 0
