@@ -82,7 +82,7 @@ def _get_cites_from_tex(tex_fn):
     cites = []
     cites_dict = {}
 
-    for citestring in ['citet', 'citep']:
+    for citestring in ['cite', 'citet', 'citep']:
         pattern = '\\\\' + citestring + '.*?\{(?P<cite>.*?)\}'
         new_cites = []
         for l in lines:
@@ -91,6 +91,7 @@ def _get_cites_from_tex(tex_fn):
             citestring_cites = list(itertools.chain.from_iterable([c.split(',') for c in citestring_cites]))
             citestring_cites = [c.strip() for c in citestring_cites]
             new_cites.extend(citestring_cites)
+
         cites_dict[citestring] = list(set(new_cites))
         cites.extend(new_cites)
 
@@ -536,26 +537,6 @@ class LitMan:
         logger.info(f'{nice_title}')
         entry.fields['title'] = nice_title
 
-    def gen_bib_for_tex_dir(self, tex_dir, outfile, dry_run):
-        tex_fns = _scan_dirs(tex_dir, '.tex')
-        all_cites = []
-        for tex_fn in tex_fns:
-            all_cites_for_file, _ = _get_cites_from_tex(tex_fn)
-            all_cites.extend(all_cites_for_file)
-        all_cites = list(set(all_cites))
-        bib_data = self._create_bib(all_cites)
-
-        jmap = load_journal_abbr_name_map(self.litman_dir)
-        for key, entry in bib_data.entries.items():
-            self._nice_title_from_journal(key, entry)
-            if 'journal' in entry.fields and entry.fields['journal'] in jmap:
-                self._nice_journal_name_from_journal(entry, jmap[entry.fields['journal']])
-
-        if dry_run:
-            print(bib_data.to_string('bibtex'))
-        else:
-            bib_data.to_file(outfile)
-        return bib_data
 
     def gen_bib_for_tag(self, tag_filter, outfile, dry_run):
         items = self.get_items(tag_filter)
@@ -566,9 +547,25 @@ class LitMan:
             bib_data.to_file(outfile)
         return bib_data
 
-    def gen_bib_for_tex(self, tex_fn, outfile, dry_run):
-        all_cites, _ = _get_cites_from_tex(tex_fn)
+    def gen_bib_for_tex_dir(self, tex_dir, outfile, dry_run, no_rename_title):
+        tex_fns = _scan_dirs(tex_dir, '.tex')
+        return self.gen_bib_for_tex_fns(tex_fns, outfile, dry_run, no_rename_title)
+
+    def gen_bib_for_tex_fns(self, tex_fns, outfile, dry_run, no_rename_title):
+        all_cites = []
+        for tex_fn in tex_fns:
+            all_cites_for_file, _ = _get_cites_from_tex(tex_fn)
+            all_cites.extend(all_cites_for_file)
+        all_cites = list(set(all_cites))
         bib_data = self._create_bib(all_cites)
+
+        jmap = load_journal_abbr_name_map(self.litman_dir)
+        for key, entry in bib_data.entries.items():
+            if not no_rename_title:
+                self._nice_title_from_journal(key, entry)
+            if 'journal' in entry.fields and entry.fields['journal'] in jmap:
+                self._nice_journal_name_from_journal(entry, jmap[entry.fields['journal']])
+
         if dry_run:
             print(bib_data.to_string('bibtex'))
         else:
