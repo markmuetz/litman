@@ -39,12 +39,21 @@ def _check_people(bib_data):
             people_to_entry[' '.join(person.last_names)] = entry
             _check_person(k, person)
 
+    mismatches = []
     for lastname, persons in people.items():
         if len(persons) > 1:
-            for person in persons[1:]:
-                if (persons[0].first_names + persons[0].middle_names !=
-                        person.first_names + person.middle_names):
-                    logger.warning(f'NAME MISMATCH: {persons[0]} <-> {person}')
+            for p1, p2 in itertools.combinations(persons, 2):
+                if p1.last_names[0] == 'others' or p2.last_names[0] == 'others':
+                    continue
+                if p1.first_names[0][0] != p2.first_names[0][0]:
+                    # Different first letter of first name; unlikely to be same person.
+                    continue
+                if p1.first_names + p1.middle_names != p2.first_names + p2.middle_names:
+                    # Converting to string here means set(...) will work.
+                    mismatches.append(f'NAME MISMATCH: {p1} <-> {p2}')
+    for mismatch in sorted(set(mismatches)):
+        logger.warning(mismatch)
+
     return people, people_to_entry
 
 
