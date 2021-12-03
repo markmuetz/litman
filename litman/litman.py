@@ -23,11 +23,11 @@ logger = getLogger('litman')
 def _check_person(entry_key, person):
     for name in person.first_names + person.middle_names:
         if len(name) >= 2 and name == name.upper() and '-' not in name:
-            logger.warning(f'{entry_key} All CAPS: {person}')
+            print(f'{entry_key} All CAPS: {person}')
         if name.endswith('.') or name.endswith(','):
-            logger.warning(f'{entry_key} Final punctuation: {person}')
+            print(f'{entry_key} Final punctuation: {person}')
     if person.last_names[0].startswith('others'):
-        logger.warning(f'{entry_key} contains "others"')
+        print(f'{entry_key} contains "others"')
 
 
 def _check_people(bib_data):
@@ -52,7 +52,7 @@ def _check_people(bib_data):
                     # Converting to string here means set(...) will work.
                     mismatches.append(f'NAME MISMATCH: {p1} <-> {p2}')
     for mismatch in sorted(set(mismatches)):
-        logger.warning(mismatch)
+        print(mismatch)
 
     return people, people_to_entry
 
@@ -311,6 +311,7 @@ class LitItem:
     def add_bib_data(self, bib_name, bib_entry):
         single_bib_data = BibliographyData({bib_name: bib_entry})
         single_bib_data.to_file(self.bib_fn)
+        self._bib_loaded = False
 
     def display(self):
         if self.has_pdf:
@@ -570,6 +571,7 @@ class LitMan:
 
         jmap = load_journal_abbr_name_map(self.litman_dir)
         for key, entry in bib_data.entries.items():
+            entry.fields['title'] = '{' + entry.fields['title'] + '}'
             if not no_rename_title:
                 self._nice_title_from_journal(key, entry)
             if 'journal' in entry.fields and entry.fields['journal'] in jmap:
