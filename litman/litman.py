@@ -91,7 +91,7 @@ def _get_cites_from_tex(tex_fn):
     cites = []
     cites_dict = {}
 
-    for citestring in ['cite', 'citet', 'citep']:
+    for citestring in ['cite', 'citet', 'citep', 'citeaffixed', 'citeasnoun']:
         pattern = '\\\\' + citestring + '.*?\{(?P<cite>.*?)\}'
         new_cites = []
         for l in lines:
@@ -176,8 +176,8 @@ class LitItem:
         if self.has_bib:
             bib_data = parse_bib_file(self.bib_fn)
             assert len(bib_data.entries.keys()) == 1
-            self._bib_name = bib_data.entries.keys()[0]
-            self._bib_entry = bib_data.entries.values()[0]
+            self._bib_name = list(bib_data.entries.keys())[0]
+            self._bib_entry = list(bib_data.entries.values())[0]
         else:
             self._bib_name = None
             self._bib_entry = None
@@ -261,7 +261,7 @@ class LitItem:
             years.append(bib_year)
         name_year = re.match('\D*(?P<year>\d*)\D*', self.name).group('year')
         if len(name_year) != 4:
-            logger.warn(f'{self.name}: Year {name_year} in wrong format')
+            logger.debug(f'{self.name}: Year {name_year} in wrong format')
         else:
             name_year = int(name_year)
             years.append(name_year)
