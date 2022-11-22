@@ -415,11 +415,27 @@ class LitMan:
         self.items.append(item)
         return item
 
-    def get_item(self, item_name):
+    def get_item(self, item_name, allow_partial=False):
         if self._scanned and item_name in self._item_cache:
             item = self._item_cache[item_name]
         else:
-            item = LitItem(self, item_name)
+            try:
+                item = LitItem(self, item_name)
+            except ItemNotFound:
+                if allow_partial:
+                    self._scan()
+                    potential_items = [item for item in self.items
+                                       if item_name == item.name[:len(item_name)]]
+                    if len(potential_items) == 1:
+                        item = potential_items[0]
+                    elif len(potential_items) > 1:
+                        item_str = ", ".join([item.name for item in potential_items])
+                        msg = f'Multiple items matching {item_name} found: {item_str}'
+                        raise ItemNotFound(msg)
+                    else:
+                        raise ItemNotFound(f'item {item_name} not found')
+                else:
+                    raise ItemNotFound(f'item {item_name} not found')
         return item
 
     def get_items(self, tag_filter=None, has_title_file=None,
