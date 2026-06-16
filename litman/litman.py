@@ -319,9 +319,31 @@ class LitItem:
     def set_field(self, field, value):
         if not self.has_bib:
             raise Exception(f'{self.name} has no bib entry to set {field} on')
+        # The DOI is written surgically rather than via pybtex: pybtex's BibTeX
+        # writer LaTeX-escapes special chars (_ -> \_, % -> \%) and its reader
+        # does not unescape, so a DOI round-tripped through pybtex accumulates
+        # backslashes and ceases to be a valid DOI. Insert/replace the raw line.
+        if field == 'doi':
+            self._set_doi_text(value)
+            return
         entry = self.bib_entry()
         entry.fields[field] = value
         self.add_bib_data(self.bib_name(), entry)
+
+    def _set_doi_text(self, doi):
+        doi = normalize_doi(doi)
+        with open(self.bib_fn, 'r') as f:
+            text = f.read()
+        line_re = re.compile(r'(?im)^[ \t]*doi[ \t]*=[ \t]*".*?"(,?)[ \t]*$')
+        if line_re.search(text):
+            text = line_re.sub(lambda m: f'    doi = "{doi}"{m.group(1)}', text)
+        else:
+            # Insert as the first field, just after the `@type{key,` line.
+            text = re.sub(r'(?m)^(@\w+\{[^\n,]+,)[ \t]*$',
+                          lambda m: f'{m.group(1)}\n    doi = "{doi}",', text, count=1)
+        with open(self.bib_fn, 'w') as f:
+            f.write(text)
+        self._bib_loaded = False
 
     def write_summary(self, summary):
         import json
