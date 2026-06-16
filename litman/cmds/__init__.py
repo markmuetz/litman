@@ -13,8 +13,6 @@ commands = [
     'import-bib',
     'import-pdf',
     'list',
-    'mag-cited-by',
-    'mag-search',
     'open-doi',
     'search',
     'shell',

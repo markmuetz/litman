@@ -564,9 +564,19 @@ class LitMan:
         entry.fields['title'] = nice_title
 
 
-    def gen_bib_for_tag(self, tag_filter, outfile, dry_run):
+    def _nicify_bib(self, bib_data, no_rename_title):
+        jmap = load_journal_abbr_name_map(self.litman_dir)
+        for key, entry in bib_data.entries.items():
+            entry.fields['title'] = '{' + entry.fields['title'] + '}'
+            if not no_rename_title:
+                self._nice_title_from_journal(key, entry)
+            if 'journal' in entry.fields and entry.fields['journal'] in jmap:
+                self._nice_journal_name_from_journal(entry, jmap[entry.fields['journal']])
+
+    def gen_bib_for_tag(self, tag_filter, outfile, dry_run, no_rename_title):
         items = self.get_items(tag_filter)
         bib_data = self._create_bib([item.name for item in items])
+        self._nicify_bib(bib_data, no_rename_title)
         if dry_run:
             print(bib_data.to_string('bibtex'))
         else:
@@ -584,14 +594,7 @@ class LitMan:
             all_cites.extend(all_cites_for_file)
         all_cites = list(set(all_cites))
         bib_data = self._create_bib(all_cites)
-
-        jmap = load_journal_abbr_name_map(self.litman_dir)
-        for key, entry in bib_data.entries.items():
-            entry.fields['title'] = '{' + entry.fields['title'] + '}'
-            if not no_rename_title:
-                self._nice_title_from_journal(key, entry)
-            if 'journal' in entry.fields and entry.fields['journal'] in jmap:
-                self._nice_journal_name_from_journal(entry, jmap[entry.fields['journal']])
+        self._nicify_bib(bib_data, no_rename_title)
 
         if dry_run:
             print(bib_data.to_string('bibtex'))

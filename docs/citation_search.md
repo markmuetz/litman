@@ -55,3 +55,17 @@ Others
 
 * Web of science
 * CiteSeerX
+
+Update 2026-06-16
+-----------------
+
+Microsoft Academic Graph was retired by Microsoft at the end of 2021, so the MAG-based
+code (`mag-search`, `mag-cited-by`, `mag_client`, and the dot/citation-graph scripts that
+depended on it) has been ripped out.
+
+The direct successor is [OpenAlex](https://openalex.org/) (https://docs.openalex.org/), an
+open catalogue built on the MAG data model. It is free, needs no API key (a "polite pool"
+just asks for an email in the request), and exposes works, DOIs, and both `referenced_works`
+(cites) and a cited-by query (`filter=cites:<id>`) — i.e. everything the old MAG code used
+for the citation-graph idea. If I ever want to revive citation searching, OpenAlex is the
+target to port to.
