@@ -357,9 +357,17 @@ class LitMan:
     def __init__(self, litman_dir):
         self.litman_dir = litman_dir
         self.lit_dir = os.path.join(litman_dir, 'literature')
+        # Generated/aggregate files (word index, journal map, theme report).
+        self.data_dir = os.path.join(litman_dir, 'data')
+        # Per-project symlink collections.
+        self.projects_dir = os.path.join(litman_dir, 'projects')
         self.items = []
         self._tags = Counter()
         self._scanned = False
+
+    def data_path(self, *parts):
+        os.makedirs(self.data_dir, exist_ok=True)
+        return os.path.join(self.data_dir, *parts)
 
     def __repr__(self):
         return f"LitMan('{self.lit_dir}')"
@@ -396,9 +404,10 @@ class LitMan:
                     item.add_pdf(pdf_fn)
 
                 if project:
-                    os.makedirs(os.path.join(self.litman_dir, project), exist_ok=True)
-                    symlink = os.path.join(self.litman_dir, project, item_name)
-                    rel_target = os.path.relpath(os.path.join(self.lit_dir, item_name), os.path.join(self.litman_dir, project))
+                    project_dir = os.path.join(self.projects_dir, project)
+                    os.makedirs(project_dir, exist_ok=True)
+                    symlink = os.path.join(project_dir, item_name)
+                    rel_target = os.path.relpath(os.path.join(self.lit_dir, item_name), project_dir)
                     if not os.path.exists(symlink):
                         os.symlink(rel_target, symlink)
 
@@ -532,7 +541,7 @@ class LitMan:
         return all_matches
 
     def _check_journals(self, bib_data):
-        jmap = load_journal_abbr_name_map(self.litman_dir)
+        jmap = load_journal_abbr_name_map(self.data_dir)
         # entry is the entry read in from the bib file.
         for k, entry in bib_data.entries.items():
             item = self.get_item(k)
@@ -713,7 +722,7 @@ class LitMan:
 
 
     def _nicify_bib(self, bib_data, no_rename_title):
-        jmap = load_journal_abbr_name_map(self.litman_dir)
+        jmap = load_journal_abbr_name_map(self.data_dir)
         for key, entry in bib_data.entries.items():
             entry.fields['title'] = '{' + entry.fields['title'] + '}'
             if not no_rename_title:

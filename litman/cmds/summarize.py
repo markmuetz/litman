@@ -17,7 +17,7 @@ ARGS = [
 
 def _state_fn(litman):
     # Lets an interrupted run resume the same batch instead of resubmitting.
-    return os.path.join(litman.litman_dir, '.summarize_batch.json')
+    return litman.data_path('.summarize_batch.json')
 
 
 def main(litman, args):

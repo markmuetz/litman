@@ -15,8 +15,8 @@ def main(litman, args):
     print(f'Indexing {len(items)} items with extracted text...')
     index = build_word_index(items, min_count=args.min_count)
 
-    json_fn = os.path.join(litman.litman_dir, 'word_index.json')
-    txt_fn = os.path.join(litman.litman_dir, 'word_index.txt')
+    json_fn = litman.data_path('word_index.json')
+    txt_fn = litman.data_path('word_index.txt')
 
     with open(json_fn, 'w') as f:
         json.dump(index, f, indent=2)

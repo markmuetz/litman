@@ -26,7 +26,7 @@ def main(litman, args):
     print(f'Synthesizing themes from {len(summaries)} summaries (model {ai.THEMES_MODEL})...')
     report = ai.synthesize_themes(summaries)
 
-    outfile = args.outfile or os.path.join(litman.litman_dir, 'themes.md')
+    outfile = args.outfile or litman.data_path('themes.md')
     with open(outfile, 'w') as f:
         f.write(report)
     print(f'Wrote theme report -> {outfile}\n')
