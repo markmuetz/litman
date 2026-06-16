@@ -2,8 +2,8 @@
 import time
 from logging import getLogger
 
-from litman.doi_lookup import crossref_lookup
-from litman.litman import load_config
+from litman.doi_lookup import crossref_lookup, parse_report
+from litman.litman import load_config, ItemNotFound
 
 logger = getLogger('litman.find_doi')
 
@@ -12,6 +12,7 @@ ARGS = [
     (['--tag-filter', '-t'], {'help': 'Only items carrying this tag', 'default': None}),
     (['--articles-only', '-A'], {'help': 'Only @article entries', 'action': 'store_true'}),
     (['--apply', '-a'], {'help': 'Write CONFIDENT DOIs into ref.bib', 'action': 'store_true'}),
+    (['--apply-from'], {'help': 'Apply DOIs from a saved dry-run report (no querying)', 'default': None}),
     (['--min-ratio', '-r'], {'help': 'Min title-match ratio to accept as CONFIDENT',
                              'type': float, 'default': 0.9}),
     (['--mailto', '-m'], {'help': 'Email for CrossRef polite pool', 'default': None}),
@@ -20,6 +21,23 @@ ARGS = [
 
 
 def main(litman, args):
+    if args.apply_from:
+        written = skipped = missing = 0
+        with open(args.apply_from) as f:
+            for name, ratio, doi in parse_report(f):
+                if ratio < args.min_ratio or not doi:
+                    skipped += 1
+                    continue
+                try:
+                    litman.get_item(name, allow_partial=True).set_field('doi', doi)
+                    written += 1
+                except ItemNotFound:
+                    missing += 1
+                    print(f'  not found: {name}')
+        print(f'Wrote {written} DOIs from {args.apply_from} '
+              f'(skipped {skipped} below ratio {args.min_ratio}, {missing} not found).')
+        return
+
     mailto = args.mailto
     if not mailto:
         _, conf = load_config()

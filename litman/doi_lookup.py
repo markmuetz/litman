@@ -30,6 +30,19 @@ def normalize_doi(doi):
     return doi.strip()
 
 
+_REPORT_RE = re.compile(
+    r'^\[\d+/\d+\]\s+(?P<name>\S+)\s+'
+    r'(?P<status>CONFIDENT|MAYBE|UNCERTAIN)\s+\((?P<ratio>[\d.]+)\)\s*(?P<doi>\S+)?\s*$')
+
+
+def parse_report(lines):
+    """Parse the lines of a `find-doi` dry-run report; yield (name, ratio, doi)."""
+    for line in lines:
+        m = _REPORT_RE.match(line)
+        if m:
+            yield m.group('name'), float(m.group('ratio')), (m.group('doi') or '')
+
+
 def crossref_lookup(title, year=None, mailto=None, rows=3, timeout=25):
     """Best CrossRef match for a title.
 

@@ -663,8 +663,40 @@ class LitMan:
                 ndup += 1
         print(f'  ({ndup} duplicated cite keys)\n')
 
+        self._formatting_report(items)
+
         print(f'=== SUMMARY: {len(items)} items with a bib; {missing_doi} missing a DOI '
               f'(run `litman find-doi` to fill them) ===')
+
+    def _formatting_report(self, items):
+        delim = Counter()
+        odd_type, single_dash, key_mismatch, overesc = [], [], [], []
+        for item in items:
+            with open(item.bib_fn) as f:
+                t = f.read()
+            q = len(re.findall(r'=\s*"', t))
+            b = len(re.findall(r'=\s*\{', t))
+            delim['braces' if b > q else 'quotes'] += 1
+            m = re.search(r'^@(\w+)\{([^,]+),', t, re.M)
+            if m:
+                if not m.group(1).islower():
+                    odd_type.append((item.name, m.group(1)))
+                if m.group(2).strip() != item.name:
+                    key_mismatch.append((item.name, m.group(2).strip()))
+            mp = re.search(r'pages\s*=\s*["{]([^"}]*)', t, re.I)
+            if mp and '--' not in mp.group(1) and re.search(r'\d-\d', mp.group(1)):
+                single_dash.append((item.name, mp.group(1)))
+            if re.search(r'\\{2,}[_%&#$]', t):
+                overesc.append(item.name)
+
+        print('=== FORMATTING ===')
+        print(f'  value delimiter (dominant per file): {dict(delim)}')
+        print(f'  non-lowercase @type ({len(odd_type)}): {odd_type}')
+        print(f'  single-dash page ranges ({len(single_dash)}): {single_dash[:8]}'
+              + (' ...' if len(single_dash) > 8 else ''))
+        print(f'  over-escaped (\\\\x) fields ({len(overesc)}): {overesc}')
+        print(f'  citekey != dirname -- MANUAL REVIEW ({len(key_mismatch)}): {key_mismatch}')
+        print('  (entry-case, page-dash and over-escaping are fixed by `litman normalize`)\n')
 
     def _journal_canonical_map(self, items):
         # Map normalized journal name -> preferred spelling (most frequent, then most capitals).
@@ -684,7 +716,7 @@ class LitMan:
         items = self.get_items(tag_filter, has_bib=True)
         canon = self._journal_canonical_map(items)
 
-        n_doi = n_journal = 0
+        n_doi = n_journal = n_fmt = 0
         for item in items:
             entry = item.bib_entry()
 
@@ -706,8 +738,49 @@ class LitMan:
                         item.set_field('journal', canon[key])
                     n_journal += 1
 
+            n_fmt += self._normalize_formatting(item, apply)
+
         verb = 'updated' if apply else 'to update (dry run -- pass --apply to write)'
-        print(f'\n{n_doi} DOI(s), {n_journal} journal name(s) {verb}.')
+        print(f'\n{n_doi} DOI(s), {n_journal} journal name(s), {n_fmt} formatting fix(es) {verb}.')
+
+    def _normalize_formatting(self, item, apply):
+        # Surgical, text-level fixes that must NOT go through pybtex (which would
+        # re-escape special chars). Lowercase @type, page-range -- , and collapse
+        # over-escaped backslash runs (\\& -> \&) down to a single LaTeX escape.
+        with open(item.bib_fn) as f:
+            orig = f.read()
+        text = orig
+        changes = []
+
+        def _type(m):
+            if not m.group(1).islower():
+                changes.append(f'@{m.group(1)} -> @{m.group(1).lower()}')
+                return '@' + m.group(1).lower() + '{'
+            return m.group(0)
+        text = re.sub(r'^@(\w+)\{', _type, text, count=1, flags=re.M)
+
+        def _pages(m):
+            val = m.group(2)
+            if '--' not in val and re.search(r'\d-\d', val):
+                new = re.sub(r'(\d)-(\d)', r'\1--\2', val)
+                changes.append(f'pages {val} -> {new}')
+                return m.group(1) + new + m.group(3)
+            return m.group(0)
+        text = re.sub(r'(pages\s*=\s*["{])([^"}]*)(["}])', _pages, text, flags=re.I)
+
+        collapsed = re.sub(r'\\{2,}([_%&#$])', r'\\\1', text)
+        if collapsed != text:
+            changes.append('collapsed over-escaped backslashes')
+            text = collapsed
+
+        if text != orig:
+            for c in changes:
+                print(f'  FMT  {item.name}: {c}')
+            if apply:
+                with open(item.bib_fn, 'w') as f:
+                    f.write(text)
+            return 1
+        return 0
 
     def _nice_journal_name_from_journal(self, entry, caps_name):
         caps_name = caps_name.split()
