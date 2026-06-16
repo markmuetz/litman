@@ -43,6 +43,7 @@ setup(
     # Install with e.g. `pip install -e .[experimental]`
     extras_require= {
         'experimental': ['flask', 'graphviz'],
+        'ai': ['anthropic'],
         },
     package_data={ },
     url='https://github.com/markmuetz/litman',

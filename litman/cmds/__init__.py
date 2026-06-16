@@ -7,18 +7,24 @@ logger = getLogger('litman.cmds')
 commands = [
     'check-bib',
     'check-titles',
+    'cleanup-report',
     'display',
     'edit',
+    'find-doi',
     'gen-bib',
     'import-bib',
     'import-pdf',
     'list',
+    'normalize',
     'open-doi',
     'search',
     'shell',
     'show',
     'stats',
+    'summarize',
+    'themes',
     'version',
+    'word-index',
 ]
 
 modules = OrderedDict()

@@ -16,6 +16,7 @@ from pybtex.database import BibliographyData
 from litman.find_dups import check_for_duplicates
 from litman.html_template import html_tpl
 from litman.gen_journal_abbr_name import load_journal_abbr_name_map
+from litman.doi_lookup import normalize_doi
 
 logger = getLogger('litman')
 
@@ -152,8 +153,10 @@ class LitItem:
         self.tags_fn = os.path.join(self.litman.lit_dir, name, 'tags.txt')
         self.notes_fn = os.path.join(self.litman.lit_dir, name, 'notes.md')
         self.notes_html_fn = os.path.join(self.litman.lit_dir, name, 'notes.html')
+        self.summary_fn = os.path.join(self.litman.lit_dir, name, 'summary.json')
 
         self.has_title_file = os.path.exists(self.title_fn)
+        self.has_summary = os.path.exists(self.summary_fn)
         self.has_pdf = os.path.exists(self.pdf_fn)
         self.has_bib = os.path.exists(self.bib_fn)
         self.has_extracted_text = os.path.exists(self.extracted_text_fn)
@@ -312,6 +315,26 @@ class LitItem:
         single_bib_data = BibliographyData({bib_name: bib_entry})
         single_bib_data.to_file(self.bib_fn)
         self._bib_loaded = False
+
+    def set_field(self, field, value):
+        if not self.has_bib:
+            raise Exception(f'{self.name} has no bib entry to set {field} on')
+        entry = self.bib_entry()
+        entry.fields[field] = value
+        self.add_bib_data(self.bib_name(), entry)
+
+    def write_summary(self, summary):
+        import json
+        with open(self.summary_fn, 'w') as f:
+            json.dump(summary, f, indent=2)
+        self.has_summary = True
+
+    def read_summary(self):
+        import json
+        if not self.has_summary:
+            return None
+        with open(self.summary_fn, 'r') as f:
+            return json.load(f)
 
     def display(self):
         if self.has_pdf:
@@ -529,6 +552,131 @@ class LitMan:
         _check_people(bib_data)
         self._check_journals(bib_data)
         self._check_fields(bib_data)
+
+    def items_missing_doi(self, tag_filter=None, articles_only=False):
+        items = self.get_items(tag_filter, has_bib=True)
+        missing = []
+        for item in items:
+            entry = item.bib_entry()
+            doi = entry.fields['doi'].strip() if 'doi' in entry.fields else ''
+            if doi:
+                continue
+            if articles_only and entry.type != 'article':
+                continue
+            missing.append(item)
+        return missing
+
+    def cleanup_report(self, tag_filter=None):
+        items = self.get_items(tag_filter, has_bib=True)
+
+        bibname_to_items = defaultdict(list)
+        people = defaultdict(set)
+        journals = defaultdict(list)
+        doi_fixes = []
+        missing_doi = 0
+
+        for item in items:
+            entry = item.bib_entry()
+            bibname_to_items[item.bib_name()].append(item.name)
+
+            doi = entry.fields['doi'].strip() if 'doi' in entry.fields else ''
+            if not doi:
+                missing_doi += 1
+            else:
+                fixed = normalize_doi(doi)
+                if fixed != doi:
+                    doi_fixes.append((item.name, doi, fixed))
+
+            if 'journal' in entry.fields and entry.fields['journal'].strip():
+                j = entry.fields['journal'].strip()
+                journals[re.sub(r'[^a-z0-9]', '', j.lower())].append(j)
+
+            for person in entry.persons.get('author', []):
+                last = ' '.join(person.last_names)
+                first = ' '.join(person.first_names + person.middle_names)
+                if first:
+                    people[last].add(first)
+
+        print('=== DOI FORMAT ISSUES (url prefixes / LaTeX escaping) ===')
+        for name, old, new in sorted(doi_fixes):
+            print(f'  {name}: {old!r} -> {new!r}')
+        print(f'  ({len(doi_fixes)} DOIs would be normalized)\n')
+
+        print('=== JOURNAL NAME VARIANTS ===')
+        njv = 0
+        for key, vs in sorted(journals.items()):
+            uniq = set(vs)
+            if len(uniq) > 1:
+                canon = max(uniq, key=lambda v: (vs.count(v), sum(c.isupper() for c in v)))
+                print(f"  {sorted(uniq)} -> '{canon}'")
+                njv += 1
+        print(f'  ({njv} journals with multiple spellings)\n')
+
+        print('=== AUTHOR GIVEN-NAME VARIANTS (same surname, same first initial) ===')
+        nav = 0
+        for last, firsts in sorted(people.items()):
+            if last.lower() == 'others':
+                continue
+            fs = sorted(firsts)
+            if len(fs) > 1 and len({f[0] for f in fs}) == 1:
+                print(f'  {last}: {fs}')
+                nav += 1
+        print(f'  ({nav} surnames with inconsistent given-name forms; review by hand -- '
+              f'distinct people can share a surname)\n')
+
+        print('=== DUPLICATE CITE KEYS (same key in >1 item dir) ===')
+        ndup = 0
+        for bibname, names in sorted(bibname_to_items.items()):
+            if len(names) > 1:
+                print(f'  {bibname}: {names}')
+                ndup += 1
+        print(f'  ({ndup} duplicated cite keys)\n')
+
+        print(f'=== SUMMARY: {len(items)} items with a bib; {missing_doi} missing a DOI '
+              f'(run `litman find-doi` to fill them) ===')
+
+    def _journal_canonical_map(self, items):
+        # Map normalized journal name -> preferred spelling (most frequent, then most capitals).
+        journals = defaultdict(list)
+        for item in items:
+            entry = item.bib_entry()
+            if 'journal' in entry.fields and entry.fields['journal'].strip():
+                j = entry.fields['journal'].strip()
+                journals[re.sub(r'[^a-z0-9]', '', j.lower())].append(j)
+        canon = {}
+        for key, vs in journals.items():
+            if len(set(vs)) > 1:
+                canon[key] = max(set(vs), key=lambda v: (vs.count(v), sum(c.isupper() for c in v)))
+        return canon
+
+    def normalize(self, apply=False, tag_filter=None):
+        items = self.get_items(tag_filter, has_bib=True)
+        canon = self._journal_canonical_map(items)
+
+        n_doi = n_journal = 0
+        for item in items:
+            entry = item.bib_entry()
+
+            if 'doi' in entry.fields and entry.fields['doi'].strip():
+                old = entry.fields['doi']
+                new = normalize_doi(old)
+                if new != old:
+                    print(f'  DOI  {item.name}: {old!r} -> {new!r}')
+                    if apply:
+                        item.set_field('doi', new)
+                    n_doi += 1
+
+            if 'journal' in entry.fields and entry.fields['journal'].strip():
+                j = entry.fields['journal'].strip()
+                key = re.sub(r'[^a-z0-9]', '', j.lower())
+                if key in canon and j != canon[key]:
+                    print(f'  JOUR {item.name}: {j!r} -> {canon[key]!r}')
+                    if apply:
+                        item.set_field('journal', canon[key])
+                    n_journal += 1
+
+        verb = 'updated' if apply else 'to update (dry run -- pass --apply to write)'
+        print(f'\n{n_doi} DOI(s), {n_journal} journal name(s) {verb}.')
 
     def _nice_journal_name_from_journal(self, entry, caps_name):
         caps_name = caps_name.split()
