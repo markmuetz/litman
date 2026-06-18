@@ -2,7 +2,7 @@ import os
 import re
 import itertools
 from logging import getLogger
-from subprocess import call, Popen
+from subprocess import call, Popen, DEVNULL
 from collections import Counter, defaultdict
 from signal import signal, SIGPIPE, SIG_DFL
 import webbrowser
@@ -16,7 +16,7 @@ from pybtex.database import BibliographyData
 from litman.find_dups import check_for_duplicates
 from litman.html_template import html_tpl
 from litman.gen_journal_abbr_name import load_journal_abbr_name_map
-from litman.doi_lookup import normalize_doi
+from litman.doi_lookup import normalize_doi, find_doi_in_text, fetch_bibtex, crossref_lookup
 
 logger = getLogger('litman')
 
@@ -84,6 +84,32 @@ def _extract_text(pdf_fn, output_fn):
     text_basename = 'extracted_text.txt'
     logger.debug(f'extract text: {pdf_fn} -> {output_fn}')
     call(['pdftotext', pdf_fn, output_fn])
+
+
+def _pdf_metadata_title(pdf_fn):
+    """The Title field from the PDF's metadata, or '' (often missing/junk)."""
+    from subprocess import check_output
+    try:
+        out = check_output(['pdfinfo', pdf_fn], stderr=DEVNULL).decode('utf-8', 'replace')
+    except Exception:
+        return ''
+    for line in out.splitlines():
+        if line.startswith('Title:'):
+            return line[len('Title:'):].strip()
+    return ''
+
+
+def _candidate_title(pdf_fn, text):
+    """Best guess at a paper's title: PDF metadata, else first substantial line."""
+    title = _pdf_metadata_title(pdf_fn)
+    if len(title) >= 12 and ' ' in title:
+        return title
+    for line in text.splitlines():
+        line = line.strip()
+        # Skip page furniture; a title line is several words of real prose.
+        if len(line) >= 20 and len(line.split()) >= 3 and not line.lower().startswith(('doi', 'http')):
+            return line
+    return ''
 
 
 def _get_cites_from_tex(tex_fn):
@@ -306,6 +332,8 @@ class LitItem:
 
     def add_pdf(self, pdf_fn):
         _extract_text(pdf_fn, self.extracted_text_fn)
+        self.has_extracted_text = os.path.exists(self.extracted_text_fn)
+        self._extracted_text_loaded = False
 
         pdf_symlink = self.pdf_fn
         if not os.path.exists(self.pdf_fn):
@@ -315,6 +343,21 @@ class LitItem:
         single_bib_data = BibliographyData({bib_name: bib_entry})
         single_bib_data.to_file(self.bib_fn)
         self._bib_loaded = False
+
+    def add_bib_text(self, raw_bibtex, citekey=None):
+        """Write a raw BibTeX entry to ref.bib, optionally re-keying the citation key.
+
+        Kept as text rather than parsed/re-emitted through pybtex so DOIs and
+        LaTeX-escaped characters survive verbatim (see _set_doi_text for why).
+        """
+        text = raw_bibtex.strip()
+        if citekey:
+            text = re.sub(r'^(@\w+\s*\{)[^,\n]*,',
+                          lambda m: f'{m.group(1)}{citekey},', text, count=1)
+        with open(self.bib_fn, 'w') as f:
+            f.write(text + '\n')
+        self._bib_loaded = False
+        self.has_bib = True
 
     def set_field(self, field, value):
         if not self.has_bib:
@@ -395,7 +438,38 @@ class LitMan:
         return f"LitMan('{self.lit_dir}')"
 
 
-    def import_pdf(self, import_dir, tags=[], project=None):
+    def fetch_bib_for_item(self, item, mailto=None, min_ratio=0.9):
+        """Try to populate an item's ref.bib from CrossRef. Returns the DOI used, or ''.
+
+        First the paper's own DOI (printed in its text) is tried; failing that, a
+        candidate title is matched against CrossRef. The fetched BibTeX is written
+        verbatim, re-keyed to the item name.
+        """
+        if not item.has_extracted_text:
+            return ''
+        text = item.extracted_text() or ''
+
+        doi = find_doi_in_text(text)
+        source = 'DOI in text'
+        if not doi:
+            title = _candidate_title(item.pdf_fn if item.has_pdf else '', text)
+            if not title:
+                return ''
+            doi, cr_title, ratio = crossref_lookup(title, mailto=mailto)
+            if not doi or ratio < min_ratio:
+                logger.info(f'{item.name}: no confident CrossRef match '
+                            f'(best ratio {ratio:.2f})')
+                return ''
+            source = f'title match ({ratio:.2f})'
+
+        bibtex = fetch_bibtex(doi, mailto=mailto)
+        if not bibtex:
+            return ''
+        item.add_bib_text(bibtex, citekey=item.name)
+        logger.info(f'{item.name}: fetched bib via {source} -> {doi}')
+        return doi
+
+    def import_pdf(self, import_dir, tags=[], project=None, fetch_bib=False, mailto=None):
         if project == os.path.basename(self.lit_dir):
             raise ValueError(f'Invalid name for project: {project}')
 
@@ -424,6 +498,12 @@ class LitMan:
 
                 if not item.has_pdf:
                     item.add_pdf(pdf_fn)
+
+                if fetch_bib and not item.has_bib:
+                    try:
+                        self.fetch_bib_for_item(item, mailto=mailto)
+                    except Exception as ex:
+                        logger.warning(f'{item_name}: bib fetch failed: {ex}')
 
                 if project:
                     project_dir = os.path.join(self.projects_dir, project)

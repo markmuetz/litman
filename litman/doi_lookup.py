@@ -43,6 +43,42 @@ def parse_report(lines):
             yield m.group('name'), float(m.group('ratio')), (m.group('doi') or '')
 
 
+# A DOI is `10.<registrant>/<suffix>`; the suffix runs until whitespace or a
+# closing delimiter. Trailing sentence punctuation is stripped by the caller.
+DOI_RE = re.compile(r'\b10\.\d{4,9}/[-._;()/:A-Za-z0-9]+', re.IGNORECASE)
+
+
+def find_doi_in_text(text, search_chars=4000):
+    """Return the paper's own DOI from its extracted text, or '' if none found.
+
+    Only the leading portion is searched: a paper prints its own DOI near the
+    top (header/footer/first page), whereas DOIs further down belong to cited
+    references.
+    """
+    m = DOI_RE.search(text[:search_chars])
+    if not m:
+        return ''
+    return normalize_doi(m.group(0).rstrip('.,;)'))
+
+
+def fetch_bibtex(doi, mailto=None, timeout=25):
+    """Fetch a ready-made BibTeX entry for a DOI via CrossRef content negotiation.
+
+    Returns the raw BibTeX string, or '' on failure.
+    """
+    doi = normalize_doi(doi)
+    url = f'{CROSSREF_URL}/{doi}/transform/application/x-bibtex'
+    params = {'mailto': mailto} if mailto else {}
+    headers = {'User-Agent': f'litman-doi/1.0 (mailto:{mailto})' if mailto else 'litman-doi/1.0'}
+    resp = requests.get(url, params=params, headers=headers, timeout=timeout)
+    if resp.status_code != 200:
+        logger.warning(f'CrossRef bibtex fetch for {doi} returned {resp.status_code}')
+        return ''
+    # CrossRef serves UTF-8 but omits the charset, so requests would assume
+    # Latin-1 for text/* and mangle non-ASCII (en-dashes, accents).
+    return resp.content.decode('utf-8', 'replace').strip()
+
+
 def crossref_lookup(title, year=None, mailto=None, rows=3, timeout=25):
     """Best CrossRef match for a title.
 
