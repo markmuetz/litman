@@ -87,7 +87,10 @@ def batch_status(batch_id):
 def iter_batch_results(batch_id):
     """Yield (custom_id, summary_dict_or_None, error_or_None)."""
     import json
-    for result in client().messages.batches.results(batch_id):
+    # Hold a reference for the whole iteration: results() streams lazily, and a
+    # temporary client would be GC'd mid-stream, closing the socket (EBADF).
+    c = client()
+    for result in c.messages.batches.results(batch_id):
         if result.result.type == 'succeeded':
             msg = result.result.message
             text = next((b.text for b in msg.content if b.type == 'text'), '')
@@ -99,7 +102,7 @@ def iter_batch_results(batch_id):
             yield result.custom_id, None, result.result.type
 
 
-def synthesize_themes(summaries, model=THEMES_MODEL, max_tokens=16000):
+def synthesize_themes(summaries, model=THEMES_MODEL, max_tokens=64000):
     """summaries: list of (item_name, summary_dict). Returns a markdown theme report."""
     lines = []
     for name, s in summaries:
@@ -118,7 +121,8 @@ def synthesize_themes(summaries, model=THEMES_MODEL, max_tokens=16000):
     )
 
     parts = []
-    with client().messages.stream(
+    c = client()  # keep alive for the whole stream (see iter_batch_results)
+    with c.messages.stream(
         model=model,
         max_tokens=max_tokens,
         thinking={'type': 'adaptive'},
@@ -126,4 +130,8 @@ def synthesize_themes(summaries, model=THEMES_MODEL, max_tokens=16000):
     ) as stream:
         for text in stream.text_stream:
             parts.append(text)
+        final = stream.get_final_message()
+    if final.stop_reason == 'max_tokens':
+        # max_tokens caps thinking + text combined, so the report can be cut mid-word.
+        logger.warning(f'themes report truncated at max_tokens={max_tokens}')
     return ''.join(parts)
