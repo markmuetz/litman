@@ -6,7 +6,13 @@ try:
 except ImportError:
     from distutils.core import setup, Extension
 
-from litman.version import get_version
+def get_version():
+    # Load version.py directly so setup.py does not import the litman
+    # package (which pulls in runtime dependencies).
+    version_ns = {}
+    with open(os.path.join(os.path.dirname(__file__), 'litman', 'version.py')) as f:
+        exec(f.read(), version_ns)
+    return version_ns['get_version']()
 
 
 def read(fname):
@@ -39,6 +45,7 @@ setup(
         'pybtex',
         'configparser',
         'requests',
+        'markdown',
         ],
     # Install with e.g. `pip install -e .[experimental]`
     extras_require= {
