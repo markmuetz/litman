@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Citation network — litman library</title>
 <style>
 :root {
@@ -253,6 +258,25 @@ main { position: relative; flex: 1; min-height: 0; }
 #panel .close:hover { color: var(--ink); }
 #panel .close:focus-visible { outline: 2px solid var(--accent); }
 
+.pdf-link {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  color: var(--accent);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 6px;
+  flex: none;
+}
+.pdf-link:hover, .pdf-link:focus-visible { background: var(--surface-2); outline: none; }
+#panel li { display: flex; align-items: center; gap: 6px; }
+#panel .paper-link { flex: 1; min-width: 0; }
+#panel .sel-head { float: right; display: flex; gap: 6px; align-items: center; }
+#panel label.rankby {
+  display: flex; align-items: center; gap: 6px;
+  color: var(--ink-2); font-size: 12px; margin: 0 0 8px;
+}
+
 @media (max-width: 900px) {
   #panel { width: min(85vw, 320px); }
   #search { width: 170px; }
@@ -261,7 +285,8 @@ main { position: relative; flex: 1; min-height: 0; }
   * { transition: none !important; }
 }
 </style>
-
+</head>
+<body>
 <div id="app">
   <header>
     <div>
@@ -677,29 +702,55 @@ function escapeHtml(s) {
   return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// file:// links are useless (and blocked) on a hosted copy; only offer them locally
+const PDF_OK = location.protocol === 'file:' || location.hostname === 'localhost';
+function pdfLink(i) {
+  const n = nodes[i];
+  if (!n.f || !PDF_OK) return '';
+  const seg = encodeURIComponent(n.k);
+  return `<a class="pdf-link" href="${DATA.pdfBase}/${seg}/${seg}.pdf" target="_blank" ` +
+    `rel="noopener" title="Open PDF">pdf</a>`;
+}
+
 function paperLink(i, metric) {
   const n = nodes[i];
   return `<li><button class="paper-link" data-i="${i}">` +
     `<span class="pk">${n.k}</span> <span class="pd">· ${metric}</span>` +
-    `</button></li>`;
+    `</button>${pdfLink(i)}</li>`;
 }
 
+let rankKey = 'd';
+const RANK_LABELS = { d: 'cited by (in-library)', p: 'PageRank ×1000', c: 'global citations' };
+
 function renderOverview() {
-  const top = [...nodes.keys()].sort((a, b) => nodes[b].d - nodes[a].d).slice(0, 20);
+  const visible = [...nodes.keys()].filter(i => clusterOn[nodes[i].g]);
+  const top = visible.sort((a, b) => (nodes[b][rankKey] || 0) - (nodes[a][rankKey] || 0))
+                     .slice(0, 20);
+  const filtered = clusterOn.some(v => !v);
+  const fmt = v => v == null ? '?' : v;
   panel.innerHTML =
     `<h3 style="margin-top:2px">About this map</h3>
      <p class="intro">Each dot is a paper in the library; papers cite each other along the
      links. Size is the chosen metric, color is the Louvain community.
      Hover for details, click to pin a paper and trace what it cites and
      what cites it. Scroll to zoom, drag the background to pan, drag a dot to nudge the layout.</p>
-     <h3>Most cited within the library</h3>
+     <h3>Top papers${filtered ? ` — ${visible.length} in selected communities` : ''}</h3>
+     <label class="rankby">Rank by
+       <select id="rankby">` +
+    Object.entries(RANK_LABELS).map(([k, l]) =>
+      `<option value="${k}"${k === rankKey ? ' selected' : ''}>${l}</option>`).join('') +
+    `</select></label>
      <table>
-       <thead><tr><th>paper</th><th style="text-align:right">cited by</th></tr></thead>
+       <thead><tr><th>paper</th><th style="text-align:right">${RANK_LABELS[rankKey]}</th><th></th></tr></thead>
        <tbody>` +
     top.map(i =>
       `<tr><td><button class="paper-link" data-i="${i}"><span class="pk">${nodes[i].k}</span></button></td>` +
-      `<td class="num">${nodes[i].d}</td></tr>`).join('') +
+      `<td class="num">${fmt(nodes[i][rankKey])}</td><td>${pdfLink(i)}</td></tr>`).join('') +
     `</tbody></table>`;
+  document.getElementById('rankby').addEventListener('change', e => {
+    rankKey = e.target.value;
+    renderOverview();
+  });
   wirePanelLinks();
 }
 
@@ -708,7 +759,7 @@ function renderSelection(i) {
   const cited = [...inAdj[i]].sort((a, b) => nodes[b].d - nodes[a].d);
   const cites = [...outAdj[i]].sort((a, b) => nodes[b].d - nodes[a].d);
   panel.innerHTML =
-    `<button class="close" id="closesel" aria-label="Clear selection">✕ clear</button>
+    `<div class="sel-head">${pdfLink(i)}<button class="close" id="closesel" aria-label="Clear selection">✕ clear</button></div>
      <h2>${n.k}</h2>
      <div class="cluster-tag"><span class="dot" style="background:${C.clusters[n.g]}"></span>
        ${CLUSTERS[n.g]}${n.y ? ' · ' + n.y : ''}</div>
@@ -766,6 +817,7 @@ function buildLegend() {
       b.classList.toggle('off', !clusterOn[g]);
       b.setAttribute('aria-pressed', clusterOn[g]);
       draw();
+      if (selIdx < 0) renderOverview();
     });
     legend.appendChild(b);
   });
@@ -814,3 +866,5 @@ renderOverview();
 resize();
 runLayout();
 </script>
+</body>
+</html>

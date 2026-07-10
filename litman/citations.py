@@ -465,6 +465,10 @@ def write_html(litman, outfile, total, nodes, edges, meta, in_degree, ranks,
         topic = _topic_of(litman, k)
         if len(topic) > 140:
             topic = topic[:140] + '…'
+        try:
+            has_pdf = litman.get_item(k).has_pdf
+        except Exception:
+            has_pdf = False
         out_nodes.append({
             'k': k,
             'y': m['year'],
@@ -473,11 +477,14 @@ def write_html(litman, outfile, total, nodes, edges, meta, in_degree, ranks,
             'p': round(ranks[k] * 1000, 2),
             't': topic,
             'g': comm[k],
+            'f': 1 if has_pdf else 0,
         })
     data = {
         'generated': str(date.today()),
         'total': total,
         'clusters': labels,
+        # PDF links resolve relative to the HTML's own location in the data dir
+        'pdfBase': os.path.relpath(litman.lit_dir, os.path.dirname(outfile)),
         'nodes': out_nodes,
         'edges': [[idx[a], idx[b]] for a, b in edges],
     }
