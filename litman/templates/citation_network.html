@@ -1,0 +1,816 @@
+<title>Citation network — litman library</title>
+<style>
+:root {
+  --surface: #fcfcfb;
+  --surface-2: #f3f2ef;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-3: #8a887f;
+  --line: #e4e2dc;
+  --accent: #2a78d6;
+  --edge-in: #2a78d6;
+  --edge-out: #eb6834;
+  --c0: #2a78d6; --c1: #1baf7a; --c2: #eda100; --c3: #008300;
+  --c4: #4a3aa7; --c5: #e34948; --c6: #e87ba4; --c7: #eb6834;
+  --c8: #9b9a92;
+  --panel-bg: rgba(252, 252, 251, 0.96);
+  --chip-bg: rgba(252, 252, 251, 0.88);
+  --shadow: 0 2px 14px rgba(30, 28, 20, 0.12);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #1a1a19;
+    --surface-2: #242423;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --ink-3: #8a887f;
+    --line: #383835;
+    --accent: #3987e5;
+    --edge-in: #3987e5;
+    --edge-out: #d95926;
+    --c0: #3987e5; --c1: #199e70; --c2: #c98500; --c3: #008300;
+    --c4: #9085e9; --c5: #e66767; --c6: #d55181; --c7: #d95926;
+    --c8: #6f6e66;
+    --panel-bg: rgba(26, 26, 25, 0.95);
+    --chip-bg: rgba(26, 26, 25, 0.88);
+    --shadow: 0 2px 14px rgba(0, 0, 0, 0.5);
+  }
+}
+:root[data-theme="light"] {
+  --surface: #fcfcfb;
+  --surface-2: #f3f2ef;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --ink-3: #8a887f;
+  --line: #e4e2dc;
+  --accent: #2a78d6;
+  --edge-in: #2a78d6;
+  --edge-out: #eb6834;
+  --c0: #2a78d6; --c1: #1baf7a; --c2: #eda100; --c3: #008300;
+  --c4: #4a3aa7; --c5: #e34948; --c6: #e87ba4; --c7: #eb6834;
+  --c8: #9b9a92;
+  --panel-bg: rgba(252, 252, 251, 0.96);
+  --chip-bg: rgba(252, 252, 251, 0.88);
+  --shadow: 0 2px 14px rgba(30, 28, 20, 0.12);
+}
+:root[data-theme="dark"] {
+  --surface: #1a1a19;
+  --surface-2: #242423;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --ink-3: #8a887f;
+  --line: #383835;
+  --accent: #3987e5;
+  --edge-in: #3987e5;
+  --edge-out: #d95926;
+  --c0: #3987e5; --c1: #199e70; --c2: #c98500; --c3: #008300;
+  --c4: #9085e9; --c5: #e66767; --c6: #d55181; --c7: #d95926;
+  --c8: #6f6e66;
+  --panel-bg: rgba(26, 26, 25, 0.95);
+  --chip-bg: rgba(26, 26, 25, 0.88);
+  --shadow: 0 2px 14px rgba(0, 0, 0, 0.5);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  overflow: hidden;
+}
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  z-index: 5;
+}
+h1 {
+  margin: 0;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-wrap: balance;
+}
+.sub { margin: 1px 0 0; color: var(--ink-2); font-size: 12px; }
+.sub b { color: var(--ink); font-weight: 600; }
+.controls { display: flex; align-items: center; gap: 14px; margin-left: auto; flex-wrap: wrap; }
+
+.searchwrap { position: relative; }
+#search {
+  width: 250px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+}
+#search::placeholder { color: var(--ink-3); }
+#search:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+#results {
+  position: absolute; top: 100%; left: 0; right: 0;
+  margin-top: 4px;
+  background: var(--panel-bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  max-height: 320px;
+  overflow-y: auto;
+  display: none;
+  z-index: 20;
+}
+#results.open { display: block; }
+#results button {
+  display: block; width: 100%;
+  padding: 7px 10px;
+  border: 0; background: none; text-align: left;
+  color: var(--ink); font: inherit; cursor: pointer;
+}
+#results button:hover, #results button:focus-visible { background: var(--surface-2); outline: none; }
+#results .rk { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; }
+#results .rt { display: block; color: var(--ink-2); font-size: 11.5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+label.sizeby { color: var(--ink-2); font-size: 12.5px; display: flex; align-items: center; gap: 6px; }
+select {
+  padding: 5px 8px;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: var(--surface-2); color: var(--ink); font: inherit; font-size: 12.5px;
+}
+select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+main { position: relative; flex: 1; min-height: 0; }
+#canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+#canvas.dragging { cursor: grabbing; }
+#canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+#legend {
+  position: absolute; left: 14px; bottom: 14px;
+  display: flex; flex-direction: column; gap: 4px;
+  max-width: 290px;
+  z-index: 4;
+}
+.chip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 10px 4px 8px;
+  border: 1px solid var(--line); border-radius: 15px;
+  background: var(--chip-bg);
+  color: var(--ink); font: inherit; font-size: 12px;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  width: fit-content;
+}
+.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.chip .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.chip .n { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.chip.off { opacity: 0.42; }
+.chip.off .dot { background: var(--ink-3) !important; }
+.legend-hint { color: var(--ink-3); font-size: 11px; padding-left: 8px; }
+
+#tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: var(--panel-bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: 8px 11px;
+  max-width: 340px;
+  font-size: 12.5px;
+  display: none;
+  z-index: 10;
+}
+#tooltip .tk { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-weight: 600; font-size: 12px; }
+#tooltip .tt { color: var(--ink-2); margin-top: 3px; }
+#tooltip .tm { color: var(--ink-3); margin-top: 4px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+
+#panel {
+  position: absolute; right: 0; top: 0; bottom: 0;
+  width: 340px;
+  background: var(--panel-bg);
+  border-left: 1px solid var(--line);
+  backdrop-filter: blur(6px);
+  overflow-y: auto;
+  padding: 16px 18px 24px;
+  z-index: 4;
+}
+#panel h2 {
+  margin: 0 0 2px;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 15px; font-weight: 600;
+  overflow-wrap: anywhere;
+}
+#panel h3 {
+  margin: 18px 0 6px;
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--ink-3);
+}
+#panel .cluster-tag { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-2); font-size: 12px; margin: 4px 0 10px; }
+#panel .cluster-tag .dot { width: 9px; height: 9px; border-radius: 50%; }
+#panel .topic { color: var(--ink-2); font-size: 13px; }
+#panel .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+#panel .metric {
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 7px 10px; background: var(--surface-2);
+}
+#panel .metric .v { font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; }
+#panel .metric .l { font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.05em; }
+#panel ul { list-style: none; margin: 0; padding: 0; }
+#panel li { margin: 0; }
+#panel .paper-link {
+  display: block; width: 100%;
+  padding: 4px 6px; margin: 0 -6px;
+  border: 0; border-radius: 6px; background: none; text-align: left;
+  color: var(--ink); font: inherit; font-size: 12.5px; cursor: pointer;
+}
+#panel .paper-link:hover, #panel .paper-link:focus-visible { background: var(--surface-2); outline: none; }
+#panel .paper-link .pk { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 11.5px; }
+#panel .paper-link .pd { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+#panel .edge-key { font-size: 11.5px; color: var(--ink-2); display: flex; gap: 14px; margin-top: 6px; }
+#panel .edge-key .sw { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+#panel table { border-collapse: collapse; width: 100%; font-size: 12px; }
+#panel th, #panel td { text-align: left; padding: 4px 6px 4px 0; border-bottom: 1px solid var(--line); }
+#panel th { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-3); font-weight: 600; }
+#panel td.num { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+#panel .intro { color: var(--ink-2); font-size: 12.5px; }
+#panel .close {
+  float: right;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: var(--surface-2); color: var(--ink-2);
+  font: inherit; font-size: 12px;
+  padding: 2px 9px; cursor: pointer;
+}
+#panel .close:hover { color: var(--ink); }
+#panel .close:focus-visible { outline: 2px solid var(--accent); }
+
+@media (max-width: 900px) {
+  #panel { width: min(85vw, 320px); }
+  #search { width: 170px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+
+<div id="app">
+  <header>
+    <div>
+      <h1>Citation network of the library</h1>
+      <p class="sub" id="stats"></p>
+    </div>
+    <div class="controls">
+      <div class="searchwrap">
+        <input id="search" type="search" placeholder="Search key or topic…"
+               autocomplete="off" aria-label="Search papers">
+        <div id="results" role="listbox"></div>
+      </div>
+      <label class="sizeby">Node size
+        <select id="sizeby">
+          <option value="d">in-library citations</option>
+          <option value="p">PageRank</option>
+          <option value="c">global citations</option>
+        </select>
+      </label>
+    </div>
+  </header>
+  <main>
+    <canvas id="canvas" tabindex="0" aria-label="Citation graph. Use search to select papers."></canvas>
+    <div id="legend"></div>
+    <div id="tooltip"></div>
+    <aside id="panel" aria-live="polite"></aside>
+  </main>
+</div>
+
+<script>
+const DATA = /*__DATA__*/;
+
+// ---------- setup ----------
+const nodes = DATA.nodes;
+const N = nodes.length;
+const edges = DATA.edges;
+const CLUSTERS = DATA.clusters;
+const NC = CLUSTERS.length;              // last entry is "Other / unlinked"
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const outAdj = Array.from({length: N}, () => []);  // i cites j
+const inAdj = Array.from({length: N}, () => []);   // i cited by j
+for (const [a, b] of edges) { outAdj[a].push(b); inAdj[b].push(a); }
+
+const clusterCounts = new Array(NC).fill(0);
+nodes.forEach(n => clusterCounts[n.g]++);
+
+document.getElementById('stats').innerHTML =
+  `<b>${N}</b> linked papers · <b>${edges.length}</b> internal citations · ` +
+  `${DATA.total}-item litman corpus · ${DATA.generated}`;
+
+// ---------- theme tokens (canvas reads CSS custom properties) ----------
+let C = {};
+function readTheme() {
+  const s = getComputedStyle(document.documentElement);
+  C = {
+    surface: s.getPropertyValue('--surface').trim(),
+    ink: s.getPropertyValue('--ink').trim(),
+    ink2: s.getPropertyValue('--ink-2').trim(),
+    ink3: s.getPropertyValue('--ink-3').trim(),
+    accent: s.getPropertyValue('--accent').trim(),
+    edgeIn: s.getPropertyValue('--edge-in').trim(),
+    edgeOut: s.getPropertyValue('--edge-out').trim(),
+    clusters: Array.from({length: NC}, (_, i) =>
+      s.getPropertyValue('--c' + Math.min(i, 8)).trim()),
+    dark: false,
+  };
+  const m = /^#(..)(..)(..)/.exec(C.surface);
+  if (m) C.dark = (parseInt(m[1],16)*0.3 + parseInt(m[2],16)*0.6 + parseInt(m[3],16)*0.1) < 128;
+}
+readTheme();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readTheme(); buildLegend(); draw(); });
+new MutationObserver(() => { readTheme(); buildLegend(); draw(); })
+  .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+// ---------- sizing metric ----------
+let sizeKey = 'd';
+let radius = new Float32Array(N);
+function computeRadii() {
+  let max = 0;
+  for (const n of nodes) max = Math.max(max, n[sizeKey] || 0);
+  max = max || 1;
+  for (let i = 0; i < N; i++) {
+    const v = (nodes[i][sizeKey] || 0) / max;
+    radius[i] = 2.5 + 13 * Math.sqrt(v);
+  }
+}
+computeRadii();
+document.getElementById('sizeby').addEventListener('change', e => {
+  sizeKey = e.target.value; computeRadii(); draw();
+});
+
+// ---------- force layout ----------
+const px = new Float32Array(N), py = new Float32Array(N);
+const vx = new Float32Array(N), vy = new Float32Array(N);
+{
+  // seed each cluster in its own sector so the layout untangles quickly
+  const R = 60 * Math.sqrt(N);
+  for (let i = 0; i < N; i++) {
+    const g = nodes[i].g;
+    const a = (g / NC) * 2 * Math.PI + (Math.random() - 0.5) * 0.9;
+    const r = R * (0.25 + 0.65 * Math.random());
+    px[i] = Math.cos(a) * r; py[i] = Math.sin(a) * r;
+  }
+}
+let alpha = 1;
+const SPRING_LEN = 55, SPRING_K = 0.06, REPULSE = 1600, GRAVITY = 0.012;
+
+function tick() {
+  // repulsion, O(n^2) — fine at ~600 nodes
+  for (let i = 0; i < N; i++) {
+    for (let j = i + 1; j < N; j++) {
+      let dx = px[i] - px[j], dy = py[i] - py[j];
+      let d2 = dx*dx + dy*dy + 0.01;
+      if (d2 > 250000) continue;
+      const f = REPULSE / d2 * alpha;
+      dx *= f; dy *= f;
+      vx[i] += dx; vy[i] += dy;
+      vx[j] -= dx; vy[j] -= dy;
+    }
+  }
+  for (const [a, b] of edges) {
+    let dx = px[b] - px[a], dy = py[b] - py[a];
+    const d = Math.sqrt(dx*dx + dy*dy) + 0.01;
+    const f = SPRING_K * (d - SPRING_LEN) / d * alpha;
+    dx *= f; dy *= f;
+    vx[a] += dx; vy[a] += dy;
+    vx[b] -= dx; vy[b] -= dy;
+  }
+  for (let i = 0; i < N; i++) {
+    vx[i] -= px[i] * GRAVITY * alpha;
+    vy[i] -= py[i] * GRAVITY * alpha;
+    vx[i] *= 0.6; vy[i] *= 0.6;
+    if (i === dragIdx) continue;
+    px[i] += vx[i]; py[i] += vy[i];
+  }
+  alpha *= 0.985;
+}
+
+// ---------- canvas / camera ----------
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, dpr = 1;
+let cam = { x: 0, y: 0, k: 1 };
+
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  W = canvas.clientWidth; H = canvas.clientHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  draw();
+}
+new ResizeObserver(resize).observe(canvas);
+
+function fitView(pad = 60) {
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  for (let i = 0; i < N; i++) {
+    x0 = Math.min(x0, px[i]); x1 = Math.max(x1, px[i]);
+    y0 = Math.min(y0, py[i]); y1 = Math.max(y1, py[i]);
+  }
+  const w = Math.max(x1 - x0, 1), h = Math.max(y1 - y0, 1);
+  const panelW = window.innerWidth > 900 ? 340 : 0;
+  cam.k = Math.min((W - panelW - pad*2) / w, (H - pad*2) / h);
+  cam.k = Math.min(Math.max(cam.k, 0.02), 3);
+  cam.x = (x0 + x1) / 2 - panelW / 2 / cam.k;
+  cam.y = (y0 + y1) / 2;
+}
+const toScreen = (x, y) => [(x - cam.x) * cam.k + W/2, (y - cam.y) * cam.k + H/2];
+const toWorld = (sx, sy) => [(sx - W/2) / cam.k + cam.x, (sy - H/2) / cam.k + cam.y];
+
+// ---------- state ----------
+let hoverIdx = -1, selIdx = -1, dragIdx = -1;
+const clusterOn = new Array(NC).fill(true);
+const nodeVisible = i => clusterOn[nodes[i].g];
+
+// ---------- draw ----------
+function hexA(hex, a) {
+  const m = /^#(..)(..)(..)/.exec(hex);
+  return m ? `rgba(${parseInt(m[1],16)},${parseInt(m[2],16)},${parseInt(m[3],16)},${a})` : hex;
+}
+
+function draw() {
+  if (!W) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = C.surface;
+  ctx.fillRect(0, 0, W, H);
+
+  const focus = selIdx >= 0 ? selIdx : hoverIdx;
+  const neighbors = new Set();
+  if (focus >= 0) {
+    neighbors.add(focus);
+    for (const j of outAdj[focus]) neighbors.add(j);
+    for (const j of inAdj[focus]) neighbors.add(j);
+  }
+
+  // edges
+  const baseEdge = hexA(C.ink3, C.dark ? 0.16 : 0.13);
+  ctx.lineWidth = Math.max(0.5, 0.7 * Math.sqrt(cam.k));
+  ctx.strokeStyle = baseEdge;
+  ctx.beginPath();
+  for (const [a, b] of edges) {
+    if (!nodeVisible(a) || !nodeVisible(b)) continue;
+    if (focus >= 0 && (a === focus || b === focus)) continue;
+    const dimmed = focus >= 0;
+    if (dimmed) continue;             // hide unrelated edges while focused
+    const [ax, ay] = toScreen(px[a], py[a]);
+    const [bx, by] = toScreen(px[b], py[b]);
+    ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
+  }
+  ctx.stroke();
+  if (focus >= 0) {
+    // faint context edges among neighbors
+    ctx.strokeStyle = hexA(C.ink3, 0.08);
+    ctx.beginPath();
+    for (const [a, b] of edges) {
+      if (a === focus || b === focus) continue;
+      if (!neighbors.has(a) || !neighbors.has(b)) continue;
+      if (!nodeVisible(a) || !nodeVisible(b)) continue;
+      const [ax, ay] = toScreen(px[a], py[a]);
+      const [bx, by] = toScreen(px[b], py[b]);
+      ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
+    }
+    ctx.stroke();
+    // focus edges: outgoing (cites) and incoming (cited by)
+    ctx.lineWidth = Math.max(1, 1.2 * Math.sqrt(cam.k));
+    ctx.strokeStyle = hexA(C.edgeOut, 0.7);
+    ctx.beginPath();
+    for (const j of outAdj[focus]) {
+      if (!nodeVisible(j)) continue;
+      const [ax, ay] = toScreen(px[focus], py[focus]);
+      const [bx, by] = toScreen(px[j], py[j]);
+      ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = hexA(C.edgeIn, 0.7);
+    ctx.beginPath();
+    for (const j of inAdj[focus]) {
+      if (!nodeVisible(j)) continue;
+      const [ax, ay] = toScreen(px[focus], py[focus]);
+      const [bx, by] = toScreen(px[j], py[j]);
+      ctx.moveTo(ax, ay); ctx.lineTo(bx, by);
+    }
+    ctx.stroke();
+  }
+
+  // nodes
+  for (let i = 0; i < N; i++) {
+    if (!nodeVisible(i)) continue;
+    const [x, y] = toScreen(px[i], py[i]);
+    if (x < -20 || x > W + 20 || y < -20 || y > H + 20) continue;
+    const r = Math.max(1.5, radius[i] * Math.sqrt(cam.k));
+    const dim = focus >= 0 && !neighbors.has(i);
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, 2 * Math.PI);
+    ctx.fillStyle = dim ? hexA(C.clusters[nodes[i].g], 0.12)
+                        : C.clusters[nodes[i].g];
+    ctx.fill();
+    if (!dim && r > 3) {              // 2px surface ring separates overlapping marks
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = C.surface;
+      ctx.stroke();
+    }
+    if (i === selIdx || i === hoverIdx) {
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = C.ink;
+      ctx.beginPath();
+      ctx.arc(x, y, r + 2.5, 0, 2 * Math.PI);
+      ctx.stroke();
+    }
+  }
+
+  // labels: hubs when zoomed in, plus focus + neighbors
+  const labelThreshold = 24 / cam.k;   // in-degree needed for a label at this zoom
+  ctx.font = '11px ui-monospace, Menlo, Consolas, monospace';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i < N; i++) {
+    if (!nodeVisible(i)) continue;
+    const isFocus = i === selIdx || i === hoverIdx;
+    const isNb = focus >= 0 && neighbors.has(i);
+    if (!isFocus && !isNb && nodes[i].d < labelThreshold) continue;
+    if (focus >= 0 && !neighbors.has(i)) continue;
+    const [x, y] = toScreen(px[i], py[i]);
+    if (x < -100 || x > W + 100 || y < -20 || y > H + 20) continue;
+    const r = Math.max(1.5, radius[i] * Math.sqrt(cam.k));
+    ctx.fillStyle = isFocus ? C.ink : C.ink2;
+    const label = nodes[i].k;
+    ctx.strokeStyle = hexA(C.surface, 0.85);
+    ctx.lineWidth = 3;
+    ctx.strokeText(label, x + r + 4, y);
+    ctx.fillText(label, x + r + 4, y);
+  }
+}
+
+// ---------- simulation loop ----------
+function runLayout() {
+  if (reduceMotion) {
+    while (alpha > 0.005) tick();
+    fitView(); draw();
+    return;
+  }
+  let fitted = false;
+  (function frame() {
+    if (alpha > 0.005) {
+      for (let s = 0; s < 3; s++) tick();
+      if (!fitted || alpha > 0.05) { fitView(); fitted = true; }
+      draw();
+      requestAnimationFrame(frame);
+    } else {
+      fitView(); draw();
+    }
+  })();
+}
+
+// ---------- interaction ----------
+function hitTest(sx, sy) {
+  const [wx, wy] = toWorld(sx, sy);
+  let best = -1, bestD = 1e9;
+  for (let i = 0; i < N; i++) {
+    if (!nodeVisible(i)) continue;
+    const dx = px[i] - wx, dy = py[i] - wy;
+    const d = Math.sqrt(dx*dx + dy*dy);
+    const hit = (radius[i] * Math.sqrt(cam.k) + 5) / cam.k;
+    if (d < hit && d < bestD) { best = i; bestD = d; }
+  }
+  return best;
+}
+
+const tooltip = document.getElementById('tooltip');
+function showTooltip(i, sx, sy) {
+  const n = nodes[i];
+  tooltip.innerHTML =
+    `<div class="tk">${n.k}${n.y ? ' · ' + n.y : ''}</div>` +
+    (n.t ? `<div class="tt">${escapeHtml(n.t)}</div>` : '') +
+    `<div class="tm">cited by ${n.d} in library · ${n.c ?? '?'} globally · PageRank ${n.p}</div>`;
+  tooltip.style.display = 'block';
+  const rect = canvas.getBoundingClientRect();
+  let x = sx + 14, y = sy + 14;
+  if (x + tooltip.offsetWidth > rect.width - 8) x = sx - tooltip.offsetWidth - 10;
+  if (y + tooltip.offsetHeight > rect.height - 8) y = sy - tooltip.offsetHeight - 10;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top = y + 'px';
+}
+function hideTooltip() { tooltip.style.display = 'none'; }
+
+let panState = null, moved = false;
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId);
+  const i = hitTest(e.offsetX, e.offsetY);
+  moved = false;
+  if (i >= 0) {
+    dragIdx = i;
+    alpha = Math.max(alpha, 0.06);   // let neighbors relax while dragging
+  } else {
+    panState = { x: e.offsetX, y: e.offsetY, cx: cam.x, cy: cam.y };
+    canvas.classList.add('dragging');
+  }
+});
+canvas.addEventListener('pointermove', e => {
+  if (dragIdx >= 0) {
+    moved = true;
+    const [wx, wy] = toWorld(e.offsetX, e.offsetY);
+    px[dragIdx] = wx; py[dragIdx] = wy;
+    vx[dragIdx] = vy[dragIdx] = 0;
+    if (reduceMotion) { draw(); } else if (alpha <= 0.006) { alpha = 0.05; runLayoutContinue(); }
+    hideTooltip();
+    return;
+  }
+  if (panState) {
+    moved = true;
+    cam.x = panState.cx - (e.offsetX - panState.x) / cam.k;
+    cam.y = panState.cy - (e.offsetY - panState.y) / cam.k;
+    hideTooltip();
+    draw();
+    return;
+  }
+  const i = hitTest(e.offsetX, e.offsetY);
+  if (i !== hoverIdx) { hoverIdx = i; draw(); }
+  if (i >= 0) { showTooltip(i, e.offsetX, e.offsetY); canvas.style.cursor = 'pointer'; }
+  else { hideTooltip(); canvas.style.cursor = 'grab'; }
+});
+canvas.addEventListener('pointerup', e => {
+  canvas.classList.remove('dragging');
+  if (dragIdx >= 0 && !moved) select(dragIdx);
+  else if (panState && !moved) select(-1);
+  dragIdx = -1; panState = null;
+});
+canvas.addEventListener('pointerleave', () => { hoverIdx = -1; hideTooltip(); draw(); });
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const f = Math.exp(-e.deltaY * 0.0015);
+  const [wx, wy] = toWorld(e.offsetX, e.offsetY);
+  cam.k = Math.min(Math.max(cam.k * f, 0.02), 8);
+  cam.x = wx - (e.offsetX - W/2) / cam.k;
+  cam.y = wy - (e.offsetY - H/2) / cam.k;
+  draw();
+}, { passive: false });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { select(-1); document.getElementById('results').classList.remove('open'); }
+});
+
+function runLayoutContinue() {
+  (function frame() {
+    if (alpha > 0.005 && dragIdx >= 0) {
+      for (let s = 0; s < 2; s++) tick();
+      draw();
+      requestAnimationFrame(frame);
+    }
+  })();
+}
+
+// ---------- selection & panel ----------
+const panel = document.getElementById('panel');
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function paperLink(i, metric) {
+  const n = nodes[i];
+  return `<li><button class="paper-link" data-i="${i}">` +
+    `<span class="pk">${n.k}</span> <span class="pd">· ${metric}</span>` +
+    `</button></li>`;
+}
+
+function renderOverview() {
+  const top = [...nodes.keys()].sort((a, b) => nodes[b].d - nodes[a].d).slice(0, 20);
+  panel.innerHTML =
+    `<h3 style="margin-top:2px">About this map</h3>
+     <p class="intro">Each dot is a paper in the library; papers cite each other along the
+     links. Size is the chosen metric, color is the Louvain community.
+     Hover for details, click to pin a paper and trace what it cites and
+     what cites it. Scroll to zoom, drag the background to pan, drag a dot to nudge the layout.</p>
+     <h3>Most cited within the library</h3>
+     <table>
+       <thead><tr><th>paper</th><th style="text-align:right">cited by</th></tr></thead>
+       <tbody>` +
+    top.map(i =>
+      `<tr><td><button class="paper-link" data-i="${i}"><span class="pk">${nodes[i].k}</span></button></td>` +
+      `<td class="num">${nodes[i].d}</td></tr>`).join('') +
+    `</tbody></table>`;
+  wirePanelLinks();
+}
+
+function renderSelection(i) {
+  const n = nodes[i];
+  const cited = [...inAdj[i]].sort((a, b) => nodes[b].d - nodes[a].d);
+  const cites = [...outAdj[i]].sort((a, b) => nodes[b].d - nodes[a].d);
+  panel.innerHTML =
+    `<button class="close" id="closesel" aria-label="Clear selection">✕ clear</button>
+     <h2>${n.k}</h2>
+     <div class="cluster-tag"><span class="dot" style="background:${C.clusters[n.g]}"></span>
+       ${CLUSTERS[n.g]}${n.y ? ' · ' + n.y : ''}</div>
+     ${n.t ? `<p class="topic">${escapeHtml(n.t)}</p>` : ''}
+     <div class="metrics">
+       <div class="metric"><div class="v">${n.d}</div><div class="l">cited in-library</div></div>
+       <div class="metric"><div class="v">${n.c ?? '?'}</div><div class="l">global citations</div></div>
+       <div class="metric"><div class="v">${n.p}</div><div class="l">PageRank ×1000</div></div>
+       <div class="metric"><div class="v">${cites.length}</div><div class="l">refs in-library</div></div>
+     </div>
+     <div class="edge-key">
+       <span><span class="sw" style="background:var(--edge-in)"></span>cited by</span>
+       <span><span class="sw" style="background:var(--edge-out)"></span>cites</span>
+     </div>
+     <h3>Cited by (${cited.length})</h3>
+     <ul>${cited.map(j => paperLink(j, nodes[j].y || '')).join('') || '<li class="intro">none in library</li>'}</ul>
+     <h3>Cites (${cites.length})</h3>
+     <ul>${cites.map(j => paperLink(j, nodes[j].y || '')).join('') || '<li class="intro">none in library</li>'}</ul>`;
+  document.getElementById('closesel').addEventListener('click', () => select(-1));
+  wirePanelLinks();
+}
+
+function wirePanelLinks() {
+  panel.querySelectorAll('.paper-link').forEach(b =>
+    b.addEventListener('click', () => select(+b.dataset.i, true)));
+}
+
+function select(i, center = false) {
+  selIdx = i;
+  if (i >= 0) {
+    renderSelection(i);
+    if (center) {
+      cam.x = px[i] + (window.innerWidth > 900 ? 340 / 2 / cam.k : 0);
+      cam.y = py[i];
+      if (cam.k < 0.5) cam.k = 0.8;
+    }
+  } else {
+    renderOverview();
+  }
+  draw();
+}
+
+// ---------- legend ----------
+const legend = document.getElementById('legend');
+function buildLegend() {
+  legend.innerHTML = '';
+  CLUSTERS.forEach((name, g) => {
+    const b = document.createElement('button');
+    b.className = 'chip' + (clusterOn[g] ? '' : ' off');
+    b.setAttribute('aria-pressed', clusterOn[g]);
+    b.innerHTML = `<span class="dot" style="background:${C.clusters[g]}"></span>` +
+      `${name} <span class="n">${clusterCounts[g]}</span>`;
+    b.addEventListener('click', () => {
+      clusterOn[g] = !clusterOn[g];
+      b.classList.toggle('off', !clusterOn[g]);
+      b.setAttribute('aria-pressed', clusterOn[g]);
+      draw();
+    });
+    legend.appendChild(b);
+  });
+  const hint = document.createElement('div');
+  hint.className = 'legend-hint';
+  hint.textContent = 'click a community to hide it';
+  legend.appendChild(hint);
+}
+buildLegend();
+
+// ---------- search ----------
+const search = document.getElementById('search');
+const results = document.getElementById('results');
+search.addEventListener('input', () => {
+  const q = search.value.trim().toLowerCase();
+  if (q.length < 2) { results.classList.remove('open'); return; }
+  const hits = [];
+  for (let i = 0; i < N && hits.length < 12; i++) {
+    const n = nodes[i];
+    if (n.k.toLowerCase().includes(q) || (n.t && n.t.toLowerCase().includes(q))) hits.push(i);
+  }
+  results.innerHTML = hits.map(i =>
+    `<button data-i="${i}" role="option"><span class="rk">${nodes[i].k}</span>` +
+    `<span class="rt">${escapeHtml(nodes[i].t || '')}</span></button>`).join('') ||
+    '<button disabled>no matches</button>';
+  results.classList.add('open');
+  results.querySelectorAll('button[data-i]').forEach(b =>
+    b.addEventListener('click', () => {
+      select(+b.dataset.i, true);
+      results.classList.remove('open');
+      search.value = nodes[+b.dataset.i].k;
+    }));
+});
+search.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const first = results.querySelector('button[data-i]');
+    if (first) first.click();
+  }
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('.searchwrap')) results.classList.remove('open');
+});
+
+// ---------- go ----------
+renderOverview();
+resize();
+runLayout();
+</script>

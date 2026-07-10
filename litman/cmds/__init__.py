@@ -7,6 +7,7 @@ logger = getLogger('litman.cmds')
 commands = [
     'check-bib',
     'check-titles',
+    'citation-graph',
     'cleanup-report',
     'display',
     'edit',
