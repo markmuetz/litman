@@ -681,6 +681,8 @@ class LitMan:
         items = self.get_items(tag_filter, has_bib=True)
 
         bibname_to_items = defaultdict(list)
+        doi_to_items = defaultdict(list)
+        title_to_items = defaultdict(list)
         people = defaultdict(set)
         journals = defaultdict(list)
         doi_fixes = []
@@ -690,6 +692,14 @@ class LitMan:
             entry = item.bib_entry()
             bibname_to_items[item.bib_name()].append(item.name)
 
+            title = entry.fields.get('title', '').strip()
+            if title:
+                # Key on title+year: distinct papers do share a title
+                # (e.g. two different reviews both called "Mesoscale Convective
+                # Systems"), but almost never in the same year.
+                year = entry.fields.get('year', '').strip()
+                title_to_items[(re.sub(r'[^a-z0-9]', '', title.lower()), year)].append(item.name)
+
             doi = entry.fields['doi'].strip() if 'doi' in entry.fields else ''
             if not doi:
                 missing_doi += 1
@@ -697,6 +707,7 @@ class LitMan:
                 fixed = normalize_doi(doi)
                 if fixed != doi:
                     doi_fixes.append((item.name, doi, fixed))
+                doi_to_items[fixed.lower()].append(item.name)
 
             if 'journal' in entry.fields and entry.fields['journal'].strip():
                 j = entry.fields['journal'].strip()
@@ -742,6 +753,38 @@ class LitMan:
                 print(f'  {bibname}: {names}')
                 ndup += 1
         print(f'  ({ndup} duplicated cite keys)\n')
+
+        # The same paper imported twice under different keys. import-pdf only
+        # checks whether the *key* already exists, so a second copy of a PDF
+        # under a different filename creates a silent duplicate -- invisible to
+        # the cite-key check above, which only catches one key in two dirs.
+        def _companion(names):
+            """A supplement/discussion filed alongside its paper shares the
+            parent's DOI on purpose -- not a duplicate to merge."""
+            return any(re.search(r'supplement|discussion|_si$|preprint|pre_print', n, re.I)
+                       for n in names)
+
+        print('=== SAME PAPER UNDER DIFFERENT KEYS ===')
+        nsame, nskip = 0, 0
+        seen_pairs = set()
+        for doi, names in sorted(doi_to_items.items()):
+            names = sorted(set(names))
+            if len(names) < 2:
+                continue
+            seen_pairs.add(frozenset(names))
+            if _companion(names):
+                nskip += 1
+                continue
+            print(f'  same DOI {doi}: {names}')
+            nsame += 1
+        for _, names in sorted(title_to_items.items()):
+            names = sorted(set(names))
+            if len(names) > 1 and frozenset(names) not in seen_pairs and not _companion(names):
+                print(f'  same title+year: {names}')
+                nsame += 1
+        print(f'  ({nsame} groups to review; {nskip} supplement/discussion pairs skipped)')
+        print('  merge by hand: keep the key whose year matches its bib, move tags and\n'
+              '  project links across, then fix any themes.md citations.\n')
 
         self._formatting_report(items)
 
