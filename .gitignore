@@ -2,3 +2,4 @@
 .*.swp
 .idea/
 litman.egg-info
+build/
