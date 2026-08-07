@@ -61,6 +61,31 @@ def find_doi_in_text(text, search_chars=4000):
     return normalize_doi(m.group(0).rstrip('.,;)'))
 
 
+# CrossRef emits inline XHTML in titles (<scp> for small-caps, <sub>/<sup> in
+# formulae). BibTeX has no use for it and it leaks into rendered bibliographies.
+_MARKUP_RE = re.compile(r'</?(?:scp|i|b|em|strong|sub|sup|span)\b[^>]*>', re.I)
+
+# CrossRef writes the month as a bare macro spelled out in full ("month=Sept",
+# "month=July"). Only the three-letter macros are defined in BibTeX styles, so
+# anything longer makes pybtex raise KeyError on the undefined macro and takes
+# out every command that parses the corpus. Braced values are left alone -- they
+# are strings, not macros, and parse fine.
+_MONTHS = ('jan', 'feb', 'mar', 'apr', 'may', 'jun',
+           'jul', 'aug', 'sep', 'oct', 'nov', 'dec')
+_MONTH_RE = re.compile(r'(month\s*=\s*)([A-Za-z]+)')
+
+
+def _sanitize_bibtex(text):
+    """Make a CrossRef BibTeX entry safe to write and parse."""
+    text = _MARKUP_RE.sub('', text)
+
+    def _month(m):
+        abbr = m.group(2)[:3].lower()
+        return f'{m.group(1)}{abbr}' if abbr in _MONTHS else m.group(0)
+
+    return _MONTH_RE.sub(_month, text)
+
+
 def fetch_bibtex(doi, mailto=None, timeout=25):
     """Fetch a ready-made BibTeX entry for a DOI via CrossRef content negotiation.
 
@@ -76,7 +101,7 @@ def fetch_bibtex(doi, mailto=None, timeout=25):
         return ''
     # CrossRef serves UTF-8 but omits the charset, so requests would assume
     # Latin-1 for text/* and mangle non-ASCII (en-dashes, accents).
-    return resp.content.decode('utf-8', 'replace').strip()
+    return _sanitize_bibtex(resp.content.decode('utf-8', 'replace').strip())
 
 
 def crossref_lookup(title, year=None, mailto=None, rows=3, timeout=25):
