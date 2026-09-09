@@ -1,5 +1,7 @@
 import os
 import re
+import sys
+import shlex
 import itertools
 from logging import getLogger
 from subprocess import call, Popen, DEVNULL
@@ -84,6 +86,21 @@ def _extract_text(pdf_fn, output_fn):
     text_basename = 'extracted_text.txt'
     logger.debug(f'extract text: {pdf_fn} -> {output_fn}')
     call(['pdftotext', pdf_fn, output_fn])
+
+
+def _pdf_viewer_cmd(pdf_fn):
+    """Command to open a PDF in the system's default viewer.
+
+    $LITMAN_PDF_VIEWER overrides the default, e.g. `export LITMAN_PDF_VIEWER=evince`.
+    """
+    viewer = os.environ.get('LITMAN_PDF_VIEWER')
+    if viewer:
+        return shlex.split(viewer) + [pdf_fn]
+    if sys.platform == 'darwin':
+        return ['open', pdf_fn]
+    if sys.platform.startswith('win'):
+        return ['cmd', '/c', 'start', '', pdf_fn]
+    return ['xdg-open', pdf_fn]
 
 
 def _pdf_metadata_title(pdf_fn):
@@ -402,10 +419,16 @@ class LitItem:
             return json.load(f)
 
     def display(self):
-        if self.has_pdf:
-            Popen(['evince', self.pdf_fn])
-        else:
+        if not self.has_pdf:
             logger.info(f'item {self.name} has no PDF')
+            return
+        cmd = _pdf_viewer_cmd(self.pdf_fn)
+        logger.debug(f'display: {cmd}')
+        try:
+            Popen(cmd, stdout=DEVNULL, stderr=DEVNULL)
+        except OSError as e:
+            logger.error(f'could not run {cmd[0]!r} to open {self.pdf_fn}: {e}')
+            logger.error('set $LITMAN_PDF_VIEWER to a working PDF viewer command')
 
     def rename_tag(self, tag_old, tag_new):
         if tag_old in self.tags:
