@@ -8,12 +8,13 @@ from litman.litman import LitMan, load_config
 LITMAN_BASEDIR = '$HOME/LitMan/literature'
 
 ARGS = [(['--DEBUG', '-D'], {'action': 'store_true', 'default': False}),
-        (['--litman-dir', '-l'], {'help': 'LitMan directory', 'default': LITMAN_BASEDIR})]
+        (['--litman-dir', '-l'], {'help': f'LitMan directory (default: litman_dir from '
+                                          f'$HOME/.litmanrc, else {LITMAN_BASEDIR})',
+                                  'default': None})]
 
 
 def main(argv):
     litman_cmds, args = parse_commands('litman', ARGS, cmds, argv[1:])
-    litman_dir = os.path.expandvars(args.litman_dir)
     cmd = litman_cmds[args.cmd_name]
 
     if args.DEBUG:
@@ -24,8 +25,18 @@ def main(argv):
     logger = setup_logger(debug, colour=True)
     cmd_string = ' '.join(argv)
     litmanrc_fn, config = load_config()
-    if config:
+    # Precedence: an explicit --litman-dir, then $HOME/.litmanrc, then the
+    # built-in default. The config used to win unconditionally, which silently
+    # ignored --litman-dir on any machine that had a .litmanrc.
+    if args.litman_dir is not None:
+        litman_dir = args.litman_dir
+    elif config:
         litman_dir = config['litman_dir']
+    else:
+        litman_dir = LITMAN_BASEDIR
+    # Expand whichever source won, so a .litmanrc shared between machines can say
+    # $HOME/LitManData (or ~/LitManData) instead of a per-machine absolute path.
+    litman_dir = os.path.expanduser(os.path.expandvars(litman_dir))
 
     if not os.path.exists(litman_dir):
         print(f'LitMan dir set to: {litman_dir}')
@@ -49,7 +60,7 @@ def main(argv):
         logger.debug(f'reading config {litmanrc_fn}')
     logger.debug(f'using litman_dir {litman_dir}')
 
-    litman = LitMan(config['litman_dir'])
+    litman = LitMan(litman_dir)
 
     logger.debug(f'dispatching to {cmd}')
     return cmd.main(litman, args)
