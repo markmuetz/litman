@@ -43,7 +43,7 @@ def main(litman, args):
             continue
 
         print('Do a search:')
-        match = re.match('(?P<auth>\D*)(?P<year>\d*)(?P<first_word>\D*)', item.name)
+        match = re.match(r'(?P<auth>\D*)(?P<year>\d*)(?P<first_word>\D*)', item.name)
         if match:
             auth, year, first_word = match.groups()
             print(f'https://scholar.google.co.uk/scholar?q={auth}+{year}+{first_word}')
