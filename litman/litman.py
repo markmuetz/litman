@@ -492,9 +492,10 @@ class LitMan:
         logger.info(f'{item.name}: fetched bib via {source} -> {doi}')
         return doi
 
-    def import_pdf(self, import_dir, tags=[], project=None, fetch_bib=False, mailto=None):
+    def import_pdf(self, import_dir, tags=None, project=None, fetch_bib=False, mailto=None):
         if project == os.path.basename(self.lit_dir):
             raise ValueError(f'Invalid name for project: {project}')
+        tags = list(tags or [])          # never share or mutate a default list
 
         import_dir = os.path.join(os.getcwd(), import_dir)
         import_dir = _remove_periods(import_dir)
@@ -514,8 +515,11 @@ class LitMan:
                     logger.info(f'Creating item {item_name}')
                     item = self.create_item(item_name)
 
-                tags = os.path.split(os.path.relpath(pdf_fn, import_dir))[0].split(os.sep) + tags
-                for tag in tags:
+                # Local, not `tags = ... + tags`: rebinding the parameter inside
+                # this loop made subdirectory tags accumulate across files, so the
+                # third PDF in a run also got the first two PDFs' subdir tags.
+                item_tags = os.path.split(os.path.relpath(pdf_fn, import_dir))[0].split(os.sep) + list(tags)
+                for tag in item_tags:
                     if tag:
                         item.add_tag(tag)
 
