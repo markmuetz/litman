@@ -46,6 +46,9 @@ def main(litman, args):
 
     if args.item_name:
         items = [litman.get_item(args.item_name, allow_partial=True)]
+        if items[0].confidential:
+            print(f'{items[0].name} is confidential: not looking it up.')
+            return
     else:
         items = litman.items_missing_doi(args.tag_filter, args.articles_only)
 

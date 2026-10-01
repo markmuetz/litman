@@ -37,7 +37,7 @@ def main(litman, args):
         index_to_name = state['items']
         print(f'Resuming batch {batch_id} ({len(index_to_name)} items)')
     else:
-        items = litman.get_items(args.tag_filter, has_extracted_text=True)
+        items = litman.get_items(args.tag_filter, has_extracted_text=True, shareable=True)
         if not args.force:
             items = [it for it in items if not it.has_summary]
         if args.limit:

@@ -20,7 +20,7 @@ def main(litman, args):
 
     outfile = args.outfile or litman.data_path('themes.md')
 
-    items = litman.get_items(args.tag_filter)
+    items = litman.get_items(args.tag_filter, shareable=True)
     summaries = [(it.name, it.read_summary()) for it in items if it.has_summary]
     if not summaries:
         print('No summaries found. Run `litman summarize` first.')

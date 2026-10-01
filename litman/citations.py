@@ -82,9 +82,10 @@ def _bib_fields(item):
 
 
 def scan_corpus(litman):
-    """{name: {'doi', 'title'}} for every item in the collection."""
+    """{name: {'doi', 'title'}} for every non-confidential item. Titles and DOIs
+    are sent to Semantic Scholar and OpenAlex, so confidential items stay out."""
     return {item.name: dict(zip(('doi', 'title'), _bib_fields(item)))
-            for item in litman.get_items()}
+            for item in litman.get_items(shareable=True)}
 
 
 # --- Semantic Scholar: citation counts ---
@@ -207,11 +208,15 @@ def resolve_openalex(papers, cache, save, mailto=None):
     if title_keys:
         print(f'OpenAlex: resolving {len(title_keys)} items by title search...')
     for n, key in enumerate(title_keys, 1):
-        # commas and pipes are filter syntax; the search tokenizer ignores them anyway
-        query = re.sub(r'[,|]', ' ', papers[key]['title'])
+        # Punctuation is filter syntax (commas, pipes) or rejected outright (a
+        # trailing '?' gives a 400); the search tokenizer ignores it anyway.
+        query = re.sub(r'[^\w\s-]', ' ', papers[key]['title'])
         r = _api_call('GET', f'{OA_API}/works', interval=OA_INTERVAL,
                       params=dict(base_params, **{'filter': f'title.search:{query}',
                                                   'per-page': 1}))
+        if 400 <= r.status_code < 500:   # one bad query should not end the run
+            oa_un[key] = f'openalex title search HTTP {r.status_code}'
+            continue
         r.raise_for_status()
         results = r.json().get('results') or []
         if results and _same_title(papers[key]['title'], results[0].get('title') or ''):
@@ -509,6 +514,12 @@ def build(litman, refresh=False, mailto=None):
     def save():
         with open(cache_fn, 'w') as f:
             json.dump(cache, f, indent=1)
+
+    # an item made confidential after it was looked up leaves the cache and graph
+    secret = {item.name for item in litman.get_items() if item.confidential}
+    for section in ('resolved', 'unresolved', 'openalex', 'openalex_unresolved'):
+        for key in secret & set(cache.get(section, {})):
+            del cache[section][key]
 
     resolve_s2(papers, cache, save)
     resolve_openalex(papers, cache, save, mailto=mailto)

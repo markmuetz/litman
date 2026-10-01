@@ -20,6 +20,10 @@ from litman.html_template import html_tpl
 from litman.gen_journal_abbr_name import load_journal_abbr_name_map
 from litman.doi_lookup import normalize_doi, find_doi_in_text, fetch_bibtex, crossref_lookup
 
+# Items with this tag are never sent to an outside service: no title or DOI
+# lookups, no summaries. Used for unpublished drafts (see get_items(shareable=)).
+CONFIDENTIAL_TAG = 'confidential'
+
 logger = getLogger('litman')
 
 
@@ -213,6 +217,10 @@ class LitItem:
 
         self._bib_loaded = False
         self._extracted_text_loaded = False
+
+    @property
+    def confidential(self):
+        return CONFIDENTIAL_TAG in self.tags
         self._notes_loaded = False
 
     def __repr__(self):
@@ -600,9 +608,13 @@ class LitMan:
         return item
 
     def get_items(self, tag_filter=None, has_title_file=None,
-                  has_pdf=None, has_bib=None, has_extracted_text=None):
+                  has_pdf=None, has_bib=None, has_extracted_text=None, shareable=False):
+        """shareable=True drops confidential items: pass it wherever the items'
+        metadata or text will leave the machine."""
         self._scan()
         items = [item for item in self.items]
+        if shareable:
+            items = [item for item in items if not item.confidential]
         if tag_filter:
             items = [item for item in items if tag_filter in item.tags]
         if has_title_file is not None:
@@ -692,7 +704,8 @@ class LitMan:
         self._check_fields(bib_data)
 
     def items_missing_doi(self, tag_filter=None, articles_only=False):
-        items = self.get_items(tag_filter, has_bib=True)
+        # callers look these up on Crossref by title
+        items = self.get_items(tag_filter, has_bib=True, shareable=True)
         missing = []
         for item in items:
             entry = item.bib_entry()
