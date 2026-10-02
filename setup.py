@@ -51,6 +51,7 @@ setup(
     extras_require= {
         'experimental': ['flask', 'graphviz'],
         'ai': ['anthropic'],
+        'embed': ['fastembed', 'numpy'],
         },
     package_data={ },
     url='https://github.com/markmuetz/litman',

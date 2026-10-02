@@ -12,6 +12,8 @@ ARGS = [
                          'help': 'Re-summarize items that already have summary.json'}),
     (['--limit'], {'type': int, 'default': None, 'help': 'Cap number of items (e.g. a pilot run)'}),
     (['--poll-interval'], {'type': int, 'default': 30, 'help': 'Seconds between batch status checks'}),
+    (['--no-embed'], {'action': 'store_true',
+                      'help': "Don't embed the new summaries and passages afterwards"}),
 ]
 
 
@@ -73,3 +75,16 @@ def main(litman, args):
 
     print(f'Wrote {written} summaries, {errors} errors.')
     os.remove(state_fn)
+    _embed(litman, args, list(index_to_name.values()) if isinstance(index_to_name, dict)
+           else list(index_to_name))
+
+
+def _embed(litman, args, names):
+    """Keep the embedding indexes current: the new summaries, plus passages for
+    those papers if a passage index already exists (never starts the slow
+    full build on its own)."""
+    from litman import embeddings
+    if args.no_embed or not embeddings.available():
+        return
+    have_passages = os.path.exists(os.path.join(litman.data_path('embeddings'), 'chunks.json'))
+    embeddings.update(litman, chunks_too=have_passages, names=names)
