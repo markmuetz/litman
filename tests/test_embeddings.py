@@ -2,8 +2,8 @@
 """Test the embeddings indexes without the model: a fake embedder maps text to
 a bag-of-words vector, so similarity is predictable.
 
-Checks: incremental update (only new items embedded), stale rows dropped after a
-rename, confidential items never indexed, reference lists stripped from
+Checks: incremental update (only new items embedded), rewritten summaries
+re-embedded on refresh, stale rows dropped after a rename, confidential items never indexed, reference lists stripped from
 passages, quoted phrases required in hybrid search, and `similar`.
 
 Run: python3 tests/test_embeddings.py   (needs numpy)
@@ -71,6 +71,18 @@ def main():
         n = Fake.calls
         E.update(lm, chunks_too=True, log=lambda *a: None)
         check(Fake.calls == n, f'second update re-embedded {Fake.calls - n} texts')
+
+        # a rewritten summary (summarize --force) must be re-embedded, not kept stale
+        open(os.path.join(lit, 'budget2020', 'summary.json'), 'w').write(
+            '{"topic": "", "summary": "radiation cloud ice"}')
+        n = Fake.calls
+        E.update(lm, names=['budget2020'], refresh=['budget2020'], log=lambda *a: None)
+        check(Fake.calls == n + 1, f'refresh embedded {Fake.calls - n} texts, expected 1')
+        top = E.search_summaries(lm, 'cloud ice radiation', k=2)
+        check({k for k, *_ in top} == {'cirrus2020', 'budget2020'}, f'refreshed vector not used: {top}')
+        open(os.path.join(lit, 'budget2020', 'summary.json'), 'w').write(
+            '{"topic": "", "summary": "moisture budget squall line"}')
+        E.update(lm, refresh=['budget2020'], log=lambda *a: None)
 
         os.rename(os.path.join(lit, 'cirrus2020'), os.path.join(lit, 'cirrus2020a'))
         os.rename(os.path.join(lit, 'cirrus2020a', 'ref.bib'), os.path.join(lit, 'cirrus2020a', 'ref.bib'))

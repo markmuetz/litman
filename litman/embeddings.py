@@ -160,22 +160,27 @@ def save(litman, name, keys, vecs, texts=None):
 
 # --- building ------------------------------------------------------------------
 
-def update(litman, chunks_too=False, names=None, threads=DEFAULT_THREADS, log=print):
+def update(litman, chunks_too=False, names=None, refresh=(), threads=DEFAULT_THREADS, log=print):
     """Bring the indexes up to date. names: only consider these items (still
-    drops rows for items that no longer exist or are confidential)."""
+    drops rows for items that no longer exist or are confidential). refresh:
+    items whose summary.json was rewritten (`summarize --force`); their summary
+    vectors are re-embedded, since presence alone would keep the stale ones."""
     np = _np()
     shareable = {it.name: it for it in litman.get_items(shareable=True)}
     wanted = shareable if names is None else {n: shareable[n] for n in names if n in shareable}
+    refresh = set(refresh)
+    wanted.update({n: shareable[n] for n in refresh if n in shareable})
 
     keys, vecs, _ = load(litman, 'summaries')
-    keep = [i for i, k in enumerate(keys) if k in shareable]
+    n_loaded = len(keys)
+    keep = [i for i, k in enumerate(keys) if k in shareable and k not in refresh]
     keys, vecs = [keys[i] for i in keep], vecs[keep]
     new = [it for n, it in wanted.items() if it.has_summary and n not in set(keys)]
     if new:
         log(f'embeddings: {len(new)} new summaries')
         vecs = np.vstack([vecs, embedder(threads).embed_docs([summary_text(it) for it in new])])
         keys += [it.name for it in new]
-    if new or len(keep) != len(load(litman, 'summaries')[0]):
+    if new or len(keep) != n_loaded:
         save(litman, 'summaries', keys, vecs)
 
     if not chunks_too:

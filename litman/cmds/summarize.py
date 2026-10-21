@@ -87,4 +87,5 @@ def _embed(litman, args, names):
     if args.no_embed or not embeddings.available():
         return
     have_passages = os.path.exists(os.path.join(litman.data_path('embeddings'), 'chunks.json'))
-    embeddings.update(litman, chunks_too=have_passages, names=names)
+    # refresh: with --force, a rewritten summary would otherwise keep its old vector
+    embeddings.update(litman, chunks_too=have_passages, names=names, refresh=names)
