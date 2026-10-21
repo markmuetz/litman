@@ -17,8 +17,16 @@ from logging import getLogger
 
 logger = getLogger('litman.ai')
 
-SUMMARY_MODEL = 'claude-haiku-4-5'
-THEMES_MODEL = 'claude-opus-4-8'
+SUMMARY_MODEL = 'claude-haiku-5-5'
+THEMES_MODEL = 'claude-opus-5-5'
+
+# Haiku 5.5 thinks by default and thinking counts against max_tokens, so the
+# summary cap leaves room for it; low effort, since summarizing needs little
+# reasoning. Opus 5.5 defaults to medium effort (4.8 ran at high), so themes
+# sets it explicitly.
+SUMMARY_MAX_TOKENS = 4000
+SUMMARY_EFFORT = 'low'
+THEMES_EFFORT = 'high'
 
 # Bound per-paper cost; abstract/intro/conclusion carry most of the topical signal.
 MAX_TEXT_CHARS = 40000
@@ -73,10 +81,11 @@ def build_summary_requests(items, model=SUMMARY_MODEL):
             custom_id=f'i{i}',
             params=MessageCreateParamsNonStreaming(
                 model=model,
-                max_tokens=800,
+                max_tokens=SUMMARY_MAX_TOKENS,
                 messages=[{'role': 'user',
                            'content': SUMMARY_INSTRUCTION.format(text=text)}],
-                output_config={'format': {'type': 'json_schema', 'schema': SUMMARY_SCHEMA}},
+                output_config={'format': {'type': 'json_schema', 'schema': SUMMARY_SCHEMA},
+                               'effort': SUMMARY_EFFORT},
             ),
         ))
     return requests, index_to_name
@@ -134,6 +143,7 @@ def _run_themes_prompt(prompt, model, max_tokens):
         model=model,
         max_tokens=max_tokens,
         thinking={'type': 'adaptive'},
+        output_config={'effort': THEMES_EFFORT},
         messages=[{'role': 'user', 'content': prompt}],
     ) as stream:
         for text in stream.text_stream:
