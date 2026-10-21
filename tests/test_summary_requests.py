@@ -33,6 +33,7 @@ def main():
     assert oc['format']['type'] == 'json_schema'
     assert 'temperature' not in params and 'thinking' not in params
     assert ai.THEMES_EFFORT in ('high', 'xhigh', 'max')
+    assert ai.MAX_TEXT_CHARS >= 150000, ai.MAX_TEXT_CHARS  # long reviews fit
     print('ok')
 
 

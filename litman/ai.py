@@ -28,8 +28,9 @@ SUMMARY_MAX_TOKENS = 4000
 SUMMARY_EFFORT = 'low'
 THEMES_EFFORT = 'high'
 
-# Bound per-paper cost; abstract/intro/conclusion carry most of the topical signal.
-MAX_TEXT_CHARS = 40000
+# Bound per-paper cost. 40k chars cut long reviews short (houze2004mesoscale's
+# summary noted the text stopped mid-review); at Haiku 5.5 prices 150k is cheap.
+MAX_TEXT_CHARS = 150000
 
 SUMMARY_SCHEMA = {
     'type': 'object',
