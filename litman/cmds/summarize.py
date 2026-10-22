@@ -74,9 +74,25 @@ def main(litman, args):
         written += 1
 
     print(f'Wrote {written} summaries, {errors} errors.')
-    os.remove(state_fn)
+    _clear_state(state_fn, batch_id)
     _embed(litman, args, list(index_to_name.values()) if isinstance(index_to_name, dict)
            else list(index_to_name))
+
+
+def _clear_state(state_fn, batch_id):
+    """Remove the resume state, but only if it still describes our batch.
+
+    A second run started while this one polls resumes the same batch, finishes
+    first and removes the state; it may even have submitted a new batch since.
+    So a missing file is fine, and another batch's state must be left alone.
+    """
+    try:
+        with open(state_fn) as f:
+            if json.load(f).get('batch_id') != batch_id:
+                return
+        os.remove(state_fn)
+    except FileNotFoundError:
+        pass
 
 
 def _embed(litman, args, names):
